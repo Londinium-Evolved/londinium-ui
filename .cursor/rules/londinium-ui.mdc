@@ -1,0 +1,287 @@
+---
+description: Londinium-UI Cursor IDE Rules
+globs: 
+alwaysApply: true
+---
+# Londinium-UI Cursor IDE Rules
+
+# Londinium-UI Development Specification
+version: 1.0.0
+repository: londinium-ui
+architecture: react-three-fiber
+focus: procedural-generation
+optimization-priority: render-pipeline
+
+
+## Core Development Principles
+principles:
+  - name: zero-budget-constraint
+    enforce: strict
+    description: "All implementations must utilize open-source technologies exclusively with no external dependencies requiring licensing."
+  - name: procedural-first
+    enforce: strict
+    description: "Assets must be algorithmically generated rather than imported where possible to validate core procedural generation systems."
+  - name: era-transition-validation
+    enforce: recommended
+    description: "Component implementations must consider transformation between Roman and Cyberpunk visual paradigms."
+  - name: performance-critical
+    enforce: strict
+    description: "Rendering operations must consistently maintain 60fps on mid-tier hardware."
+
+
+## File Structure Enforcement
+structure:
+  - path: /src/components/ui
+    purpose: "Pure UI components with zero game logic dependencies"
+    conventions:
+      - "Component-per-file pattern"
+      - "Index files for directory exports"
+      - "Styled components colocated in adjacent .styles.ts files"  
+  - path: /src/components/game
+    purpose: "Game-specific rendering components with THREE.js integration"
+    conventions:
+      - "Entity component containers organized by domain (buildings, citizens, terrain)"
+      - "LOD implementations for complex geometries"
+      - "Shader implementations isolated in .glsl files"
+  - path: /src/state
+    purpose: "MobX observable stores following domain separation"
+    conventions:
+      - "State classes with explicit type declarations"
+      - "Computed properties for derived values"
+      - "State transition functions with era-specific logic"
+  - path: /src/workers
+    purpose: "Computationally intensive operations offloaded from main thread"
+    conventions:
+      - "Single responsibility per worker"
+      - "Structured message passing interfaces"
+      - "Self-contained algorithm implementations"
+  - path: /src/utils/procedural
+    purpose: "Core procedural generation algorithms"
+    conventions:
+      - "Deterministic outputs with seed values"
+      - "Era-parameterized generation functions"
+      - "Performance-optimized implementations"
+
+
+## Naming Conventions
+naming:
+  components:
+    format: "PascalCase"
+    examples:
+      - "RomanBuilding"
+      - "CyberpunkTerrain"
+      - "EraTransitionController"
+  hooks:
+    prefix: "use"
+    format: "camelCase"
+    examples:
+      - "useProceduralGeometry"
+      - "useEraTransition"
+      - "useResourceCalculation"
+  state:
+    format: "camelCase"
+    suffix: "State"
+    examples:
+      - "gameState"
+      - "resourceState"
+      - "buildingState"
+  constants:
+    format: "UPPER_SNAKE_CASE"
+    examples:
+      - "ROMAN_BUILDING_TYPES"
+      - "RESOURCE_CONSUMPTION_RATES"
+      - "MAX_CITIZENS_PER_BUILDING"
+
+## Code Standards
+standards:
+  typescript:
+    strictMode: true
+    noImplicitAny: true
+    exactOptionalPropertyTypes: true
+    noUncheckedIndexedAccess: true
+  react:
+    functionComponents: true
+    hooksPattern: true
+    memoization:
+      enforce: conditional
+      description: "Apply React.memo() only to components rendering >20 instances or containing complex calculations"
+  three:
+    instancedMesh:
+      enforce: required
+      description: "Use InstancedMesh for repeated geometries (buildings, citizens, terrain features)"
+    disposalPattern:
+      enforce: strict
+      description: "Explicitly dispose THREE.js objects via useEffect cleanup functions"
+    shaderMaterialOptimization:
+      enforce: recommended
+      description: "Implement custom ShaderMaterial instances for complex visual effects"
+
+## Performance Rules
+performance:
+  - rule: "component-update-limit"
+    description: "Components should not re-render more than once per animation frame"
+    enforceMethod: "Strict memoization and MobX reaction optimization"
+  
+  - rule: "geometry-pooling"
+    description: "Reuse identical geometries across multiple mesh instances"
+    enforceMethod: "Centralized geometry registry pattern"
+  
+  - rule: "lazy-procedural-generation"
+    description: "Generate geometries only when within camera frustum"
+    enforceMethod: "Viewport culling system with LOD transitions"
+  
+  - rule: "shader-complexity-limit"
+    description: "Shader programs must compile in <100ms on target hardware"
+    enforceMethod: "Automated performance testing in CI/CD pipeline"
+
+## Historical Accuracy Guidelines
+historical-accuracy:
+  roman-era:
+    architecture:
+      - rule: "building-proportion-validation"
+        description: "Roman buildings must follow historically accurate proportions (e.g., Vitruvian principles)"
+        reference: "Vitruvius, De Architectura (c. 30-15 BCE)"
+      - rule: "material-authenticity"
+        description: "Building materials must reflect available Roman technologies (stone, timber, terracotta)"
+        reference: "MacDonald, W. (1982). The Architecture of the Roman Empire"
+    urban-layout:
+      - rule: "grid-pattern-streets"
+        description: "Roman settlement layouts must follow centuriation grid patterns with cardines and decumani"
+        reference: "Ward-Perkins, J.B. (1974). Cities of Ancient Greece and Italy: Planning in Classical Antiquity"
+      - rule: "building-placement-validation"
+        description: "Public buildings positioned according to Roman city planning principles"
+        reference: "Laurence, R. (1994). Roman Pompeii: Space and Society"
+  cyberpunk-era:
+    architecture:
+      - rule: "neo-brutalist-influence"
+        description: "Building aesthetics must incorporate neo-brutalist elements with high-tech augmentation"
+        reference: "Gibson, W. (1984). Neuromancer"
+      - rule: "vertical-stratification"
+        description: "Urban environments must display pronounced vertical social stratification"
+        reference: "Blade Runner (1982); Akira (1988)"
+    urban-layout:
+      - rule: "corporate-enclave-pattern"
+        description: "Corporate structures must dominate central urban areas with residential zones pushed to periphery"
+        reference: "Mike Pondsmith (1988). Cyberpunk 2020 RPG System"
+
+## Procedural Generation Parameters
+procedural-generation:
+  roman-buildings:
+    - type: "domus"
+      parameters:
+        - "atrium-size: 0.3-0.5 of total width"
+        - "peristyle-columns: 4-12 depending on wealth factor"
+        - "compluvium-ratio: 0.15-0.25 of atrium size"
+        - "room-distribution: procedurally generated following archaeological floor plans"
+      reference: "Wallace-Hadrill, A. (1994). Houses and Society in Pompeii and Herculaneum"
+    - type: "insula"
+      parameters:
+        - "height-stories: 3-6"
+        - "apartment-subdivision: 4-8 units per floor"
+        - "ground-floor-commercial: 0.7-0.9 probability"
+        - "structural-deterioration: variable based on distance from city center"
+      reference: "Storey, G. (2004). The Meaning of Insula in Roman Residential Context"
+  cyberpunk-buildings:
+    - type: "megacorp-tower"
+      parameters:
+        - "height-ratio: 5-10x width"
+        - "neon-density: 0.2-0.5 perimeter coverage"
+        - "antenna-clusters: 2-7 per building"
+        - "skywalk-connections: 1-4 to adjacent structures"
+      reference: "Otomo, K. (1988). Akira"
+    - type: "residential-stack"
+      parameters:
+        - "unit-density: 50-200 per building"
+        - "exterior-walkways: 0.6-0.9 probability"
+        - "satellite-dish-density: 0.1-0.3 units with visible dishes"
+        - "ad-billboard-ratio: 0.05-0.2 of façade area"
+      reference: "Stephenson, N. (1992). Snow Crash"
+
+## Testing Requirements
+testing:
+  unit:
+    coverage:
+      state: 80%
+      utils: 90%
+      hooks: 75%
+    tools: "Jest with React Testing Library"
+  visual:
+    diffThreshold: 2%
+    regressionTesting: true
+    tooling: "Storybook with Chromatic"
+  performance:
+    fps:
+      target: 60
+      minimum: 45
+    memoryUsage:
+      maximum: "200MB for min-spec hardware"
+    loadTime:
+      maximum: "3 seconds for initial scene render"
+
+## Pull Request Guidelines
+pr:
+  requirements:
+    - "All tests passing"
+    - "Performance benchmarks included for rendering-critical changes"
+    - "Screenshot/recording for visual changes"
+    - "Procedural generation parameters documented for new building types"
+  
+  reviewers:
+    minimum: 1
+    technical-areas:
+      - "react"
+      - "three-js"
+      - "procedural-generation"
+      - "historical-accuracy"
+
+## AI Integration Rules
+ai-integration:
+  - system: "entity-behavior"
+    purpose: "Citizen decision-making algorithms"
+    implementation: "Utility-based AI with need satisfaction scoring"
+    constraints: "Must run entirely client-side, no external API dependencies"
+  
+  - system: "procedural-validation"
+    purpose: "Historical accuracy checking for procedural outputs"
+    implementation: "Rule-based validation against architectural corpora"
+    constraints: "Validation must be deterministic and reproducible"
+
+## Era Transition Implementation
+era-transition:
+  visual-transformation:
+    technique: "Geometry morphing with vertex interpolation"
+    benchmarks: "Complete building transition under 2 seconds"
+  gameplay-evolution:
+    resource-system:
+      - "Roman: Food, Wood, Stone, Metal"
+      - "Transitional: Add Coal, Early Electronics"
+      - "Cyberpunk: Add Energy, Cybernetic Components, Data"
+    building-functionality:
+      - "Function preservation with technology evolution"
+      - "Capability expansion with era progression"
+
+## Development Workflow
+workflow:
+  branching:
+    pattern: "feature/${feature-name}"
+    integration: "develop branch"
+    release: "main branch"
+  commits:
+    format: "type(scope): description"
+    types:
+      - "feat: New feature"
+      - "fix: Bug fix"
+      - "perf: Performance improvement"
+      - "refactor: Code change that neither fixes a bug nor adds a feature"
+      - "style: Changes that do not affect the meaning of the code"
+      - "test: Adding missing tests or correcting existing tests"
+      - "docs: Documentation changes"
+      - "build: Changes that affect the build system or external dependencies"
+      - "ci: Changes to CI configuration files and scripts"
+  code-reviews:
+    focus-areas:
+      - "Algorithmic efficiency in procedural generation"
+      - "THREE.js best practices and memory management"
+      - "Era-transition implementation validity"
+      - "Historical accuracy of generated assets"
+```
