@@ -79,8 +79,8 @@ export class ResourceState {
   // Get resources for a specific era
   getEraResources(era: Era) {
     if (era === 'roman') {
-      const { food, wood, stone, metal } = this.resources;
-      return { food, wood, stone, metal };
+      return this.resources;
+
     } else {
       return this.resources;
     }
