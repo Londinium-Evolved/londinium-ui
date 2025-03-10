@@ -93,9 +93,8 @@ export class ResourceState {
       this.resources[resource] += netProduction;
 
       // Ensure resources don't go below zero
-      if (this.resources[resource] < 0) {
-        this.resources[resource] = 0;
-      }
+      this.resources[resource] = Math.max(this.resources[resource], 0)
+
     }
   }
 }
