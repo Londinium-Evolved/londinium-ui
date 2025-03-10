@@ -22,7 +22,7 @@ Londinium UI is a web-based application that visualizes the evolution of London 
 - **React Three Fiber** - React bindings for THREE.js
 - **Tailwind CSS** - Utility-first CSS
 - **shadcn/ui** - UI component library
-- **Zustand** - State management
+- **MobX** - State management
 - **Vite** - Build tool
 - **Jest** - Testing framework
 
@@ -74,11 +74,17 @@ londinium-ui/
 ├── src/
 │   ├── components/
 │   │   ├── ui/          # Pure UI components
-│   │   └── game/        # Game-specific components with THREE.js
+│   │   ├── game/        # Game-specific components with THREE.js
+│   │   ├── providers/   # Context providers and wrappers
 │   │   └── tests/       # Test files
-│   ├── state/           # State management
+│   ├── state/           # MobX state management
+│   │   ├── RootStore.ts # Central state store
+│   │   ├── GameState.ts # Game state and era management
+│   │   ├── BuildingState.ts # Building management
+│   │   └── ResourceState.ts # Resource management
 │   ├── utils/
-│   │   └── procedural/  # Procedural generation algorithms
+│   │   ├── procedural/  # Procedural generation algorithms
+│   │   └── three/       # THREE.js utility functions
 │   ├── workers/         # Web Workers for computation
 │   ├── tests/           # Test files
 │   ├── App.tsx          # Main application component
@@ -93,15 +99,50 @@ londinium-ui/
 └── vite.config.ts       # Vite configuration
 ```
 
+## Architecture Guidelines
+
+### File Extension Conventions
+
+- **`.ts`** - Pure TypeScript files (no JSX)
+  - State management
+  - Utility functions
+  - Type definitions
+- **`.tsx`** - TypeScript files with JSX/React components
+  - Any file containing JSX elements
+  - React component definitions
+  - Provider components with JSX
+
+### State Management with MobX
+
+We use MobX for state management with a store-based architecture:
+
+- **RootStore** - Central store that holds references to all domain stores
+- **Domain Stores** - Specialized stores for specific domains (GameState, BuildingState, etc.)
+- **Context Provider** - React context for accessing stores throughout the component tree
+
+### Component Organization
+
+- **React.memo()** - Applied to rendering-intensive components (rendering >20 instances)
+- **Provider separation** - JSX-based providers are kept in dedicated components
+- **Component factoring** - Complex components are split into smaller, focused components
+
 ## Procedural Generation Architecture
 
-The procedural generation system is designed to create historically accurate buildings and urban layouts for both Roman and Cyberpunk eras. The system uses a combination of algorithms to generate:
+The procedural generation system uses a custom `RandomGenerator` class to ensure deterministic and seed-based generation across different eras.
+
+The system generates:
 
 1. **Buildings** - Procedurally generated based on era-specific parameters
 2. **Urban Layout** - Grid patterns for Roman era, corporate-dominated layouts for Cyberpunk
 3. **Citizens** - Behavior patterns and appearances that match the current era
 
 The generation process is offloaded to Web Workers to maintain performance on the main thread.
+
+### THREE.js Best Practices
+
+- **Resource Disposal** - All THREE.js resources (geometries, materials, textures) are properly disposed using the `useDisposer` hook
+- **Type Safety** - Type assertions with proper guards when working with dynamic THREE.js object properties
+- **Performance** - Instanced meshes for repeated geometry, object pooling, and frustum culling
 
 ## Contributing
 
