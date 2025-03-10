@@ -1,6 +1,6 @@
 import { makeAutoObservable } from 'mobx';
 import { RootStore } from './RootStore';
-import { Era } from './GameState';
+import { Era } from './gameState';
 
 export type BuildingType =
   // Roman building types

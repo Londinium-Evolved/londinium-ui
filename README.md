@@ -68,7 +68,7 @@ Londinium UI is a web-based application that visualizes the evolution of London 
 
 ## Project Structure
 
-```
+```plaintext
 londinium-ui/
 ├── public/              # Static assets
 ├── src/
