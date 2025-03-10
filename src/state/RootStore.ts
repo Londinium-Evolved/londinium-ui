@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { GameState } from './GameState';
+import { GameState } from './gameState';
 import { BuildingState } from './BuildingState';
 import { ResourceState } from './ResourceState';
 

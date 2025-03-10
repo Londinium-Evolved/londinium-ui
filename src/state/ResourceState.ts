@@ -1,6 +1,6 @@
 import { makeAutoObservable } from 'mobx';
 import { RootStore } from './RootStore';
-import { Era } from './GameState';
+import { Era } from './gameState';
 
 // Define resource types for different eras
 export type RomanResource = 'food' | 'wood' | 'stone' | 'metal';
@@ -80,7 +80,6 @@ export class ResourceState {
   getEraResources(era: Era) {
     if (era === 'roman') {
       return this.resources;
-
     } else {
       return this.resources;
     }
@@ -93,8 +92,7 @@ export class ResourceState {
       this.resources[resource] += netProduction;
 
       // Ensure resources don't go below zero
-      this.resources[resource] = Math.max(this.resources[resource], 0)
-
+      this.resources[resource] = Math.max(this.resources[resource], 0);
     }
   }
 }

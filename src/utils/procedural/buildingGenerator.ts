@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BuildingType } from '../../state/BuildingState';
-import { type Era } from '../../state/GameState';
+import { type Era } from '../../state/gameState';
 
 // Simple random number generator class since THREE.MathUtils.Random doesn't exist
 class RandomGenerator {

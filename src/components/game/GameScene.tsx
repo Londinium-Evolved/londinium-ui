@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { observer } from 'mobx-react-lite';
 import * as THREE from 'three';
-import { Era } from '../../state/GameState';
+import { Era } from '../../state/gameState';
 import { useStore } from '../../state/RootStore';
 import { Building } from '../../state/BuildingState';
 interface GameSceneProps {
