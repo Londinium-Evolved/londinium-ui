@@ -1,26 +1,28 @@
 import { useState } from 'react';
-import { Scene } from './components/game/Scene';
+import { observer } from 'mobx-react-lite';
+import { GameWorld } from './components/game/GameWorld';
 import { Button } from './components/ui/Button';
-import { useGameState } from './state/gameState';
+import { useStore } from './state/RootStore';
+import { StoreProvider } from './components/providers/StoreProvider';
 import './App.css';
 
-function App() {
-  const { era, setEra, transitionProgress, setTransitionProgress } = useGameState();
+const AppContent = observer(() => {
+  const { gameState } = useStore();
   const [showUI, setShowUI] = useState(true);
 
   const toggleEra = () => {
-    const newEra = era === 'roman' ? 'cyberpunk' : 'roman';
-    setEra(newEra);
+    const newEra = gameState.currentEra === 'roman' ? 'cyberpunk' : 'roman';
+    gameState.setEra(newEra);
   };
 
   const handleTransitionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTransitionProgress(parseFloat(e.target.value));
+    gameState.setEraProgress(parseFloat(e.target.value));
   };
 
   return (
     <div className='relative w-full h-screen'>
       {/* 3D Scene */}
-      <Scene>{/* 3D content will be added here */}</Scene>
+      <GameWorld />
 
       {/* UI Overlay */}
       {showUI && (
@@ -28,20 +30,20 @@ function App() {
           <h1 className='text-2xl font-bold mb-4'>Londinium Evolved</h1>
 
           <div className='mb-4'>
-            <p>Current Era: {era}</p>
+            <p>Current Era: {gameState.currentEra}</p>
             <Button onClick={toggleEra} className='mt-2'>
               Switch Era
             </Button>
           </div>
 
           <div className='mb-4'>
-            <p>Era Transition: {Math.round(transitionProgress * 100)}%</p>
+            <p>Era Transition: {Math.round(gameState.eraProgress * 100)}%</p>
             <input
               type='range'
               min='0'
               max='1'
               step='0.01'
-              value={transitionProgress}
+              value={gameState.eraProgress}
               onChange={handleTransitionChange}
               className='w-full'
             />
@@ -62,6 +64,15 @@ function App() {
         </Button>
       )}
     </div>
+  );
+});
+
+// Main App component with StoreProvider
+function App() {
+  return (
+    <StoreProvider>
+      <AppContent />
+    </StoreProvider>
   );
 }
 

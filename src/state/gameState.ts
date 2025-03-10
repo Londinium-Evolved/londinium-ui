@@ -1,30 +1,13 @@
-import { create } from 'zustand';
+import { makeAutoObservable } from 'mobx';
+import { RootStore } from './RootStore';
 
 export type Era = 'roman' | 'cyberpunk';
 
-interface GameState {
-  era: Era;
-  transitionProgress: number; // 0 = roman, 1 = cyberpunk
-  resources: {
-    food: number;
-    wood: number;
-    stone: number;
-    metal: number;
-    coal: number;
-    electronics: number;
-    energy: number;
-    cyberneticComponents: number;
-    data: number;
-  };
-  setEra: (era: Era) => void;
-  setTransitionProgress: (progress: number) => void;
-  addResource: (resource: keyof GameState['resources'], amount: number) => void;
-}
-
-export const useGameState = create<GameState>((set) => ({
-  era: 'roman',
-  transitionProgress: 0,
-  resources: {
+export class GameState {
+  rootStore: RootStore;
+  currentEra: Era = 'roman';
+  eraProgress: number = 0; // 0 = roman, 1 = cyberpunk
+  resources = {
     food: 100,
     wood: 100,
     stone: 100,
@@ -34,14 +17,22 @@ export const useGameState = create<GameState>((set) => ({
     energy: 0,
     cyberneticComponents: 0,
     data: 0,
-  },
-  setEra: (era) => set({ era }),
-  setTransitionProgress: (progress) => set({ transitionProgress: progress }),
-  addResource: (resource, amount) =>
-    set((state) => ({
-      resources: {
-        ...state.resources,
-        [resource]: state.resources[resource] + amount,
-      },
-    })),
-}));
+  };
+
+  constructor(rootStore: RootStore) {
+    this.rootStore = rootStore;
+    makeAutoObservable(this, { rootStore: false });
+  }
+
+  setEra(era: Era) {
+    this.currentEra = era;
+  }
+
+  setEraProgress(progress: number) {
+    this.eraProgress = Math.max(0, Math.min(1, progress));
+  }
+
+  addResource(resource: keyof GameState['resources'], amount: number) {
+    this.resources[resource] += amount;
+  }
+}

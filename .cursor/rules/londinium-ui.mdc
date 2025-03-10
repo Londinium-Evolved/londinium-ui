@@ -61,6 +61,39 @@ structure:
       - "Deterministic outputs with seed values"
       - "Era-parameterized generation functions"
       - "Performance-optimized implementations"
+ 
+## File Extension Conventions
+file-extensions:
+  - extension: ".ts"
+    purpose: "Pure TypeScript files with no JSX/React components"
+    rules:
+      - "No JSX syntax allowed (<Component>, <div>, etc.)"
+      - "State management logic, utilities, and pure functions only"
+      - "Should not return React component trees"
+    examples:
+      - "state/**/*.ts for MobX stores"
+      - "utils/**/*.ts for utility functions"
+      - "types/**/*.ts for type definitions"
+
+  - extension: ".tsx"
+    purpose: "TypeScript files that include JSX/React components"
+    rules:
+      - "Any file that returns JSX elements"
+      - "Any file with React component definitions"
+      - "Provider components that wrap JSX context providers"
+    examples:
+      - "components/**/*.tsx for React components"
+      - "providers/**/*.tsx for context providers"
+      - "pages/**/*.tsx for page components"
+
+  - pattern: "separation-of-concerns"
+    enforce: "strict"
+    description: "State management (.ts) and presentation (.tsx) should be separate files"
+    guidelines:
+      - "Store files should be pure TypeScript (.ts) with no JSX"
+      - "Component files should use .tsx extension"
+      - "Context Providers with JSX should be in dedicated provider components (.tsx)"
+      - "Use component/index.tsx + component/logic.ts pattern for complex components"  
 
 
 ## Naming Conventions
