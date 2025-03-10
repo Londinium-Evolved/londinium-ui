@@ -16,7 +16,9 @@ export const GameScene = observer(({ era, eraProgress }: GameSceneProps) => {
 
   // Use frame for animations or continuous updates
   useFrame((state, delta) => {
-    console.log(state, delta);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(state, delta);
+    }
     if (terrainRef.current) {
       // Example of animating based on era transition
       // This would be more sophisticated in the real implementation
