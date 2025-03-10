@@ -5,7 +5,7 @@ import * as THREE from 'three';
  * Should be used in useEffect cleanup functions
  */
 export const disposeObject = (obj: THREE.Object3D | null) => {
-  if (!obj) return;
+  if (!obj) {
 
   // Handle children recursively
   if (obj.children) {
