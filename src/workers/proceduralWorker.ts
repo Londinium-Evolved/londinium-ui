@@ -88,6 +88,7 @@ function generateBuildingData(params: BuildingParams): BuildingGenerationResult 
     tempGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
     tempGeometry.computeVertexNormals();
     normals = new Float32Array(tempGeometry.attributes.normal.array);
+    tempGeometry.dispose();
   }
 
   return {
