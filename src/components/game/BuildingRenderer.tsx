@@ -6,9 +6,39 @@ import { Building } from '../../state/BuildingState';
 import {
   generateBuildingGeometry,
   getBuildingConfig,
+  BuildingConfig,
 } from '../../utils/procedural/buildingGenerator';
 import { useContext } from 'react';
 import { StoreContext } from '../../state/RootStore';
+
+/**
+ * Updates the geometry of a mesh based on building configuration dimensions
+ * Extracts complex geometry update logic from the frame loop for better readability and testability
+ */
+const updateMeshGeometry = (mesh: THREE.Mesh, config: BuildingConfig): void => {
+  if (!(mesh.geometry instanceof THREE.BoxGeometry)) return;
+
+  const [minWidth, maxWidth] = config.widthRange;
+  const [minDepth, maxDepth] = config.depthRange;
+  const [minHeight, maxHeight] = config.heightRange;
+
+  // Use average values for simplicity
+  const width = (minWidth + maxWidth) / 2;
+  const depth = (minDepth + maxDepth) / 2;
+  const height = (minHeight + maxHeight) / 2;
+
+  // Only update if dimensions are significantly different
+  const currentGeom = mesh.geometry as THREE.BoxGeometry;
+  const sizeDiff =
+    Math.abs(currentGeom.parameters.width - width) +
+    Math.abs(currentGeom.parameters.height - height) +
+    Math.abs(currentGeom.parameters.depth - depth);
+
+  if (sizeDiff > 1.0) {
+    mesh.geometry.dispose();
+    mesh.geometry = new THREE.BoxGeometry(width, height, depth);
+  }
+};
 
 interface BuildingRendererProps {
   building: Building;
@@ -48,41 +78,18 @@ const BuildingRenderer: React.FC<BuildingRendererProps> = ({ building }) => {
 
   // Apply era transition when eraProgress changes
   useFrame(() => {
-    if (meshRef.current && gameState && gameState.eraProgress > 0) {
-      // Get config for current era with progress
-      const config = getBuildingConfig(building.type, gameState.currentEra, gameState.eraProgress);
+    if (!meshRef.current || !gameState || gameState.eraProgress <= 0) return;
 
-      // If the material has been updated due to era progress, apply it
-      if (materials[0] !== meshRef.current.material) {
-        meshRef.current.material = materials[0];
-      }
+    // Get config for current era with progress
+    const config = getBuildingConfig(building.type, gameState.currentEra, gameState.eraProgress);
 
-      // We could do more sophisticated transitions here, like morphing geometry
-      // such as adjusting the size based on config's dimensions
-      if (meshRef.current.geometry instanceof THREE.BoxGeometry) {
-        // Create a new geometry with interpolated dimensions
-        const [minWidth, maxWidth] = config.widthRange;
-        const [minDepth, maxDepth] = config.depthRange;
-        const [minHeight, maxHeight] = config.heightRange;
-
-        // Use average values for simplicity
-        const width = (minWidth + maxWidth) / 2;
-        const depth = (minDepth + maxDepth) / 2;
-        const height = (minHeight + maxHeight) / 2;
-
-        // Only update if dimensions are significantly different
-        const currentGeom = meshRef.current.geometry as THREE.BoxGeometry;
-        const sizeDiff =
-          Math.abs(currentGeom.parameters.width - width) +
-          Math.abs(currentGeom.parameters.height - height) +
-          Math.abs(currentGeom.parameters.depth - depth);
-
-        if (sizeDiff > 1.0) {
-          meshRef.current.geometry.dispose();
-          meshRef.current.geometry = new THREE.BoxGeometry(width, height, depth);
-        }
-      }
+    // If the material has been updated due to era progress, apply it
+    if (materials[0] !== meshRef.current.material) {
+      meshRef.current.material = materials[0];
     }
+
+    // Update geometry based on config dimensions
+    updateMeshGeometry(meshRef.current, config);
   });
 
   return (
