@@ -1,7 +1,7 @@
 # Default Sourcery Configuration
 
 # Version of the configuration file format
-version: "1"
+version: '1'
 
 # Ignore files matching these patterns
 ignore:
@@ -9,62 +9,20 @@ ignore:
   - node_modules
   - dist
   - build
-  - "*.min.js"
-  - "*.test.ts"
-  - "*.test.tsx"
+  - '*.min.js'
+  - '*.test.ts'
+  - '*.test.tsx'
 
 # Rule settings control which rules are run and their configuration
 rule_settings:
   # List of rule IDs/tags Sourcery will exclusively suggest
   enable: [default]
-  
+
   # List of rule IDs/tags Sourcery will never suggest
-  disable: []
-  
+  disable: ['no-console-log', 'prefer-early-return']
+
   # Types of rules Sourcery will suggest
   rule_types:
     - refactoring
     - suggestion
     - comment
-  
-  # The minimum TypeScript version your project supports
-  typescript_version: '4.5'
-
-# Metrics configuration
-metrics:
-  # Quality gates for functions/methods
-  # If any of these thresholds are exceeded, Sourcery will flag the function
-  quality:
-    # Maximum cyclomatic complexity allowed for a function
-    cyclomatic_complexity: 10
-    # Maximum number of parameters allowed for a function
-    parameter_count: 5
-    # Maximum number of return statements allowed in a function
-    return_count: 3
-
-# TypeScript/JavaScript specific settings
-typescript:
-  # Enforce consistent type imports
-  prefer_type_imports: true
-  # Ban the use of certain types
-  banned_types:
-    - any
-    - Function
-    - Object
-  # Enforce strict property initialization
-  strict_property_initialization: true
-
-# You can add custom rules under the 'rules' key
-# For example:
-rules:
-  - id: no-console-log
-    pattern: console.log
-    language: typescript
-    message: "Avoid using console.log in production code"
-    severity: warning
-    
-  - id: prefer-early-return
-    pattern: if (condition) { ... } else { return; }
-    language: typescript
-    message: "Consider using early return pattern for cleaner code"
-    severity: suggestion

@@ -298,8 +298,7 @@ export const generateBuildingGeometry = (params: BuildingParams): BuildingMeshDa
   }
 
   // Generate the building using the configuration
-  const building = generateGenericBuilding(random, config, type);
-  return building;
+  return generateGenericBuilding(random, config, type);
 };
 
 /**
