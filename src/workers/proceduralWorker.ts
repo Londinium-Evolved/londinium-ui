@@ -55,7 +55,7 @@ function generateBuildingData(params: BuildingParams): BuildingGenerationResult 
   const meshData = generateBuildingGeometry(params);
 
   // Extract geometry data
-  const geometry = meshData.geometry;
+  const {geometry} = meshData;
 
   // Extract vertices, indices, and normals to pass back to the main thread
   const vertices = new Float32Array(geometry.attributes.position.array);
