@@ -197,7 +197,8 @@ const cyberpunkConfigs: Record<BuildingType, BuildingConfig> = {
  */
 function generateGenericBuilding(
   random: RandomGenerator,
-  config: BuildingConfig
+  config: BuildingConfig,
+  buildingType: BuildingType
 ): BuildingMeshData {
   const [minW, maxW] = config.widthRange;
   const [minD, maxD] = config.depthRange;
@@ -208,7 +209,7 @@ function generateGenericBuilding(
   const height = minH + random.generateFloatBetween(0, maxH - minH);
 
   const geometry = new THREE.BoxGeometry(width, height, depth);
-  return { geometry, materials: [config.material], type: '' as BuildingType };
+  return { geometry, materials: [config.material], type: buildingType };
 }
 
 /**
@@ -278,8 +279,7 @@ export const generateBuildingGeometry = (params: BuildingParams): BuildingMeshDa
   }
 
   // Generate the building using the configuration
-  const building = generateGenericBuilding(random, config);
-  building.type = type;
+  const building = generateGenericBuilding(random, config, type);
   return building;
 };
 
