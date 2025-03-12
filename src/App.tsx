@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
+import { Link } from 'react-router-dom';
 import { GameWorld } from './components/game/GameWorld';
 import { Button } from './components/ui/Button';
 import { useStore } from './state/RootStore';
@@ -47,6 +48,12 @@ const AppContent = observer(() => {
               onChange={handleTransitionChange}
               className='w-full'
             />
+          </div>
+
+          <div className='mb-4'>
+            <Link to='/demo' className='text-blue-300 underline'>
+              View Demo
+            </Link>
           </div>
 
           <Button variant='outline' onClick={() => setShowUI(false)} className='mt-4'>

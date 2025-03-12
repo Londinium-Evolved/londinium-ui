@@ -67,14 +67,7 @@ const BuildingRenderer: React.FC<BuildingRendererProps> = ({ building }) => {
       era: gameState.currentEra,
       seed: parseInt(building.id, 36), // Convert id to a numeric seed
     });
-  }, [
-    building.position,
-    building.rotation,
-    building.scale,
-    building.type,
-    building.id,
-    gameState?.currentEra,
-  ]);
+  }, [gameState, building.position, building.rotation, building.scale, building.type, building.id]);
 
   // Apply era transition when eraProgress changes
   useFrame(() => {
