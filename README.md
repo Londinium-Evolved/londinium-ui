@@ -172,9 +172,91 @@ The generation process is offloaded to Web Workers to maintain performance on th
 
 ### THREE.js Best Practices
 
-- **Resource Disposal** - All THREE.js resources (geometries, materials, textures) are properly disposed using the `useDisposer` hook
+- **Resource Disposal** - All THREE.js resources (geometries, materials, textures) are properly disposed using the `useThreeDisposal` hook to prevent memory leaks
 - **Type Safety** - Type assertions with proper guards when working with dynamic THREE.js object properties
 - **Performance** - Instanced meshes for repeated geometry, object pooling, and frustum culling
+
+#### Memory Management with `useThreeDisposal`
+
+The `useThreeDisposal` hook provides a robust solution for managing THREE.js object disposal:
+
+```tsx
+// Example usage
+const MyComponent = () => {
+  // Get the hook functions
+  const [registerDisposable, manuallyDispose] = useThreeDisposal();
+
+  useEffect(() => {
+    // Create THREE.js objects
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+
+    // Register for automatic disposal on component unmount
+    registerDisposable(geometry);
+    registerDisposable(material);
+
+    // The hook returns the registered object for easy chaining
+    const mesh = registerDisposable(new THREE.Mesh(geometry, material));
+
+    // Objects will be automatically disposed when component unmounts
+    // No manual cleanup required in the useEffect return function
+  }, [registerDisposable]);
+
+  return <mesh />;
+};
+```
+
+**Key Features:**
+
+- Automatically disposes objects when component unmounts
+- Supports all THREE.js disposable types (geometries, materials, textures, etc.)
+- Handles edge cases like objects with invalid dispose methods
+- Catches and logs errors during disposal without interrupting the process
+- Returns registered objects for convenient method chaining
+- Provides a manual disposal function for custom cleanup scenarios
+- Exposes a read-only set of tracked disposables for debugging
+
+This hook is critical for maintaining performance and preventing memory leaks, especially in applications with dynamic scene generation.
+
+## Testing Requirements
+
+The project enforces strict testing requirements to ensure reliability and performance:
+
+### Coverage Requirements
+
+- **State management**: 80% coverage
+- **Utility functions**: 90% coverage (THREE.js utilities require 100% coverage)
+- **React hooks**: 75% coverage
+- **Components**: Unit tests for core functionality
+
+### THREE.js Utility Testing
+
+THREE.js utilities, especially those related to memory management, require thorough testing:
+
+- **Disposal utilities**: 100% test coverage, including edge cases
+- **Error handling**: Tests must verify graceful handling of failures
+- **Performance impact**: Critical utilities should include performance benchmarks
+
+Example test scenarios for `useThreeDisposal`:
+
+- Automatic disposal on component unmount
+- Manual disposal trigger
+- Error handling for faulty objects
+- Proper cleanup of complex object hierarchies
+- Memory leak verification
+
+### Running Tests
+
+```bash
+# Run all tests
+npm run test
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
 
 ## Contributing
 
