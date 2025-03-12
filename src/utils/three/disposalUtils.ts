@@ -82,15 +82,15 @@ export const disposeObject = (obj: THREE.Object3D | null) => {
 export const disposeThreeObject = (obj: unknown): void => {
   if (!obj) return;
 
-  // Handle Object3D instances specially (recursive disposal)
-  if (obj instanceof THREE.Object3D) {
-    disposeObject(obj);
-    return;
-  }
-
-  // Handle other disposable objects
+  // First call the object's own dispose method if it exists
   if (isDisposable(obj)) {
     obj.dispose();
+  }
+
+  // Then, for Object3D instances, also do recursive disposal
+  // to ensure all children, geometries, and materials are properly cleaned up
+  if (obj instanceof THREE.Object3D) {
+    disposeObject(obj);
   }
 };
 
