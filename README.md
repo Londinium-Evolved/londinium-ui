@@ -14,6 +14,38 @@ Londinium UI is a web-based application that visualizes the evolution of London 
 - Performance-optimized THREE.js rendering
 - Responsive UI with shadcn/ui components
 
+## Demo
+
+The project includes an interactive demo that showcases the procedural generation capabilities:
+
+![Demo Screenshot](/public/screenshots/demo.png)
+
+### Demo Features
+
+- **Procedural Terrain Generation**: Simulates historical London topography with height variations and a River Thames-like feature
+- **Roman-Era City Layout**:
+  - Circular city wall following Roman London outline
+  - Buildings placed according to district zoning with varying sizes and colors
+  - Different building types (temples, insulae, domus) with appropriate architectural styles
+  - Roman road grid with cardo and decumanus pattern
+- **Era Transition**: Slider to morph between Roman and Cyberpunk eras (currently disabled in demo)
+
+### Running the Demo
+
+You can access the demo in three ways:
+
+1. **Through the main app**: Run `npm run dev` and click on the "View Demo" link in the UI
+2. **Direct access**: Run `npm run demo` to launch just the demo page
+3. **Browser URL**: Visit `http://localhost:5178/demo` when the dev server is running
+
+```bash
+# Start the main application with demo access
+npm run dev
+
+# Or run just the demo
+npm run demo
+```
+
 ## Technology Stack
 
 - **React 19** - UI framework
