@@ -125,7 +125,7 @@ export const useDisposer = () => {
  * @returns [registerDisposable, manuallyDispose, disposables]
  * - registerDisposable: Function to register objects for disposal
  * - manuallyDispose: Function to manually trigger disposal of all tracked objects
- * - disposables: Set of all currently tracked disposable objects (for debugging)
+ * - disposables: ReadonlySet of all currently tracked disposable objects (for debugging)
  *
  * @example
  * ```tsx
@@ -152,7 +152,7 @@ export const useDisposer = () => {
 export const useThreeDisposal = (): [
   <T extends ThreeDisposable>(obj: T) => T,
   () => void,
-  Set<ThreeDisposable>
+  ReadonlySet<ThreeDisposable>
 ] => {
   const disposablesRef = useRef<Set<ThreeDisposable>>(new Set());
 
@@ -177,5 +177,9 @@ export const useThreeDisposal = (): [
     };
   }, [manuallyDispose]);
 
-  return [registerDisposable, manuallyDispose, disposablesRef.current];
+  return [
+    registerDisposable,
+    manuallyDispose,
+    disposablesRef.current as ReadonlySet<ThreeDisposable>,
+  ];
 };
