@@ -96,7 +96,7 @@ export const disposeThreeObject = (obj: unknown): void => {
 
 /**
  * React hook for safely disposing THREE.js objects
- * @deprecated Use useThreeDisposal instead for more comprehensive disposal management
+ * @deprecated useDisposer is deprecated. Please migrate to useThreeDisposal by replacing all useDisposer references with useThreeDisposal and updating your disposal registration accordingly. Refer to the migration guide for additional details.
  */
 export const useDisposer = () => {
   const objectsToDispose = new Set<THREE.Object3D>();
