@@ -3,18 +3,22 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Mesh } from 'three';
+import { useThreeDisposal } from '../utils/three/disposalUtils';
 
 // Example simplified implementation of LIDAR terrain generation
 const TerrainGenerator = ({ width = 100, height = 100, scale = 20, resolution = 128 }) => {
   const meshRef = useRef<Mesh>(null);
   const [terrain, setTerrain] = useState<Mesh | null>(null);
+  const [registerDisposable] = useThreeDisposal();
 
   useEffect(() => {
     // Generate heightmap
     const heightmap = generateProceduralHeightmap(resolution, resolution);
 
     // Create geometry
-    const geometry = new THREE.PlaneGeometry(width, height, resolution - 1, resolution - 1);
+    const geometry = registerDisposable(
+      new THREE.PlaneGeometry(width, height, resolution - 1, resolution - 1)
+    );
 
     // Apply height displacement
     const positions = geometry.attributes.position.array;
@@ -34,15 +38,21 @@ const TerrainGenerator = ({ width = 100, height = 100, scale = 20, resolution = 
     geometry.computeBoundingSphere();
 
     // Apply material
-    const material = new THREE.MeshStandardMaterial({
-      color: '#5B8731',
-      roughness: 0.8,
-      metalness: 0.2,
-      flatShading: false,
-    });
+    const material = registerDisposable(
+      new THREE.MeshStandardMaterial({
+        color: '#5B8731',
+        roughness: 0.8,
+        metalness: 0.2,
+        flatShading: false,
+      })
+    );
 
-    setTerrain(new THREE.Mesh(geometry, material));
-  }, [width, height, scale, resolution]);
+    // Create the mesh and register it for disposal
+    const newTerrain = registerDisposable(new THREE.Mesh(geometry, material));
+    setTerrain(newTerrain);
+
+    // No need for manual cleanup as useThreeDisposal handles disposal on unmount
+  }, [width, height, scale, resolution, registerDisposable]);
 
   // Generate a procedural heightmap (simplified stand-in for LIDAR data)
   const generateProceduralHeightmap = (width: number, height: number) => {
@@ -133,6 +143,8 @@ const Buildings = ({ count = 100, wallRadius = 35 }) => {
   };
 
   const [buildings, setBuildings] = useState<Building[]>([]);
+  // No useThreeDisposal needed here as the buildings are created as JSX elements
+  // with built-in geometries and materials that React Three Fiber manages
 
   useEffect(() => {
     const bldgs: Building[] = [];
