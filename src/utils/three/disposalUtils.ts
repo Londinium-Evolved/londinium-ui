@@ -35,6 +35,7 @@ export const isDisposable = (obj: unknown): obj is Disposable => {
 /**
  * Properly disposes THREE.js objects to prevent memory leaks
  * Should be used in useEffect cleanup functions
+ * Safely handles errors to ensure all disposal attempts are made
  */
 export const disposeObject = (obj: THREE.Object3D | null) => {
   if (!obj) return; // Early return if object is null
@@ -50,7 +51,12 @@ export const disposeObject = (obj: THREE.Object3D | null) => {
 
   // Handle geometries
   if ((obj as THREE.Mesh).geometry) {
-    (obj as THREE.Mesh).geometry.dispose();
+    try {
+      (obj as THREE.Mesh).geometry.dispose();
+    } catch (error) {
+      console.error('Error disposing geometry:', error);
+      // Continue with other disposals
+    }
   }
 
   // Handle materials
@@ -62,29 +68,44 @@ export const disposeObject = (obj: THREE.Object3D | null) => {
 
     // Now iterate through the array of materials
     materials.forEach((mat) => {
-      // Dispose textures
-      Object.keys(mat).forEach((prop) => {
-        const property = (mat as unknown as Record<string, unknown>)[prop];
-        if (property && typeof property === 'object' && 'isTexture' in property) {
-          (property as THREE.Texture).dispose();
-        }
-      });
+      try {
+        // Dispose textures
+        Object.keys(mat).forEach((prop) => {
+          const property = (mat as unknown as Record<string, unknown>)[prop];
+          if (property && typeof property === 'object' && 'isTexture' in property) {
+            try {
+              (property as THREE.Texture).dispose();
+            } catch (textureError) {
+              console.error('Error disposing texture:', textureError);
+            }
+          }
+        });
 
-      // Dispose material
-      mat.dispose();
+        // Dispose material
+        mat.dispose();
+      } catch (materialError) {
+        console.error('Error disposing material:', materialError);
+        // Continue with other disposals
+      }
     });
   }
 };
 
 /**
  * Generic disposal function for any THREE.js disposable object
+ * Safely handles errors during disposal to prevent interruption of cleanup process
  */
 export const disposeThreeObject = (obj: unknown): void => {
   if (!obj) return;
 
   // First call the object's own dispose method if it exists
   if (isDisposable(obj)) {
-    obj.dispose();
+    try {
+      obj.dispose();
+    } catch (error) {
+      console.error('Error disposing object:', error);
+      // Swallow error to continue with other disposals
+    }
   }
 
   // Then, for Object3D instances, also do recursive disposal

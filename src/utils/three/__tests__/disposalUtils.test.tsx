@@ -112,7 +112,7 @@ describe('Disposal Utilities', () => {
     it('should dispose materials with textures', () => {
       const texture = new THREE.Texture();
       const material = new THREE.MeshBasicMaterial();
-      (material as { map: typeof texture }).map = texture;
+      (material as { map: THREE.Texture }).map = texture;
 
       const mesh = new THREE.Mesh();
       mesh.material = material;
@@ -150,6 +150,28 @@ describe('Disposal Utilities', () => {
       expect(childMesh1.geometry.dispose).toHaveBeenCalled();
       expect(childMesh2.geometry.dispose).toHaveBeenCalled();
     });
+
+    it('should handle texture disposal errors', () => {
+      // Create a texture that will throw when disposed
+      const faultyTexture = new THREE.Texture();
+      (faultyTexture.dispose as jest.Mock).mockImplementation(() => {
+        throw new Error('Texture disposal failed');
+      });
+
+      // Create a material with the faulty texture
+      const material = new THREE.MeshBasicMaterial();
+      (material as { map: THREE.Texture }).map = faultyTexture;
+
+      const mesh = new THREE.Mesh();
+      mesh.material = material;
+
+      // This should not throw an error
+      expect(() => disposeObject(mesh)).not.toThrow();
+
+      // Verify attempts were made to dispose both texture and material
+      expect(faultyTexture.dispose).toHaveBeenCalled();
+      expect(material.dispose).toHaveBeenCalled();
+    });
   });
 
   // Test disposeThreeObject function
@@ -176,6 +198,67 @@ describe('Disposal Utilities', () => {
     it('should handle null and undefined gracefully', () => {
       expect(() => disposeThreeObject(null)).not.toThrow();
       expect(() => disposeThreeObject(undefined)).not.toThrow();
+    });
+
+    // Add new tests for disposeThreeObject edge cases
+    it('should handle objects with faulty dispose methods that throw errors', () => {
+      // Create an object with a dispose method that throws an error
+      const faultyObject = {
+        dispose: jest.fn().mockImplementation(() => {
+          throw new Error('Faulty dispose method');
+        }),
+      };
+
+      // This should not throw an error up the call stack
+      expect(() => disposeThreeObject(faultyObject)).not.toThrow();
+
+      // Verify the dispose method was called despite throwing
+      expect(faultyObject.dispose).toHaveBeenCalled();
+    });
+
+    it('should continue disposal process even if one object fails', () => {
+      // Setup: Create a mesh with geometry and material
+      const geometry = new THREE.BoxGeometry();
+      const material = new THREE.MeshBasicMaterial();
+      const mesh = new THREE.Mesh();
+
+      mesh.geometry = geometry;
+      mesh.material = material;
+
+      // Make geometry.dispose throw an error
+      (geometry.dispose as jest.Mock).mockImplementation(() => {
+        throw new Error('Geometry disposal failed');
+      });
+
+      // This should not throw an error
+      expect(() => disposeThreeObject(mesh)).not.toThrow();
+
+      // Verify attempts were made to dispose both geometry and material
+      expect(geometry.dispose).toHaveBeenCalled();
+      expect(material.dispose).toHaveBeenCalled();
+    });
+
+    it('should handle a complex object with nested faulty disposables', () => {
+      // Create a complex scenario with nested objects and faulty dispose methods
+      const childGeometry = new THREE.BoxGeometry();
+      const childMaterial = new THREE.MeshBasicMaterial();
+      (childMaterial.dispose as jest.Mock).mockImplementation(() => {
+        throw new Error('Child material disposal failed');
+      });
+
+      const childMesh = new THREE.Mesh();
+      childMesh.geometry = childGeometry;
+      childMesh.material = childMaterial;
+
+      const parentMesh = new THREE.Mesh();
+      parentMesh.add(childMesh);
+
+      // This should not throw an error despite nested failures
+      expect(() => disposeThreeObject(parentMesh)).not.toThrow();
+
+      // Verify all dispose methods were at least attempted
+      expect(childGeometry.dispose).toHaveBeenCalled();
+      expect(childMaterial.dispose).toHaveBeenCalled();
     });
   });
 
