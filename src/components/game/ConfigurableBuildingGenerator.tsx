@@ -63,9 +63,11 @@ const BuildingRenderer: React.FC<BuildingRendererProps> = ({
       // Store the dimensions to keep them stable
       dimensionsRef.current = { width, height, depth };
 
-      console.log(
-        `Generated new dimensions for ${buildingType} (${era}): ${width}x${height}x${depth}`
-      );
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(
+          `Generated new dimensions for ${buildingType} (${era}): ${width}x${height}x${depth}`
+        );
+      }
     }
 
     const { width, height, depth } = dimensionsRef.current;
