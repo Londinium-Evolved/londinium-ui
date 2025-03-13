@@ -26,7 +26,7 @@ class RandomGenerator {
 
   // Generate a random integer between min (inclusive) and max (inclusive)
   generateIntegerBetween(min: number, max: number): number {
-    return Math.floor(this.generateFloatBetween(min, max + 0.999));
+    return Math.floor(this.generateFloatBetween(min, max + 1));
   }
 
   // Generate a boolean with a specific probability
