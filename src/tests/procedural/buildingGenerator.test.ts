@@ -217,4 +217,51 @@ describe('Procedural Building Generation', () => {
       expect(averageTime).toBeLessThanOrEqual(8); // Allow some overhead for testing
     });
   });
+
+  describe('Geometry Merging', () => {
+    it('should properly combine multiple parts into one building geometry', () => {
+      // Generate a building which requires merging multiple geometries
+      const buildingData = generateBuildingGeometry({
+        position: [0, 0, 0],
+        rotation: 0,
+        scale: [1, 1, 1],
+        type: 'domus', // Roman domus combines multiple geometries
+        era: 'roman',
+        seed: 12345,
+      });
+
+      // Get the resulting geometry
+      const { geometry } = buildingData;
+
+      // Verify the geometry has attributes we'd expect from a merged geometry
+      expect(geometry).toBeDefined();
+      expect(geometry.attributes.position).toBeDefined();
+      expect(geometry.attributes.normal).toBeDefined();
+      expect(geometry.attributes.uv).toBeDefined();
+
+      // The merged geometry should have a significant number of vertices
+      // A properly merged domus will have vertices from:
+      // - The base structure
+      // - The atrium
+      // - The peristyle
+      // - The roof
+      expect(geometry.attributes.position.count).toBeGreaterThan(100);
+
+      // Check if userData contains information about the building
+      expect(geometry.userData).toBeDefined();
+
+      // Verify that LOD geometries are properly generated
+      if (geometry.userData?.lodGeometries) {
+        const lodGeometries = geometry.userData.lodGeometries;
+        // Should have multiple LOD levels
+        expect(lodGeometries.length).toBeGreaterThanOrEqual(1);
+        // Lower LODs should have fewer vertices
+        if (lodGeometries.length > 1) {
+          expect(lodGeometries[1].attributes.position.count).toBeLessThan(
+            geometry.attributes.position.count
+          );
+        }
+      }
+    });
+  });
 });

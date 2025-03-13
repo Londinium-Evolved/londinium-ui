@@ -76,8 +76,6 @@ export function createHollowBox(
   }
 
   // Create a single merged geometry
-  // In a production implementation, this would use THREE.BufferGeometryUtils.mergeBufferGeometries
-  // For now, we'll use a placeholder approach
   return mergeBufferGeometries(geometries);
 }
 
@@ -385,8 +383,8 @@ export function createRomanRoof(
 }
 
 /**
- * Helper function to merge multiple buffer geometries into one.
- * This is a placeholder for THREE.BufferGeometryUtils.mergeBufferGeometries.
+ * Merges multiple buffer geometries into one.
+ * Custom implementation that properly combines all geometries.
  */
 function mergeBufferGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
   if (geometries.length === 0) {
@@ -397,13 +395,87 @@ function mergeBufferGeometries(geometries: THREE.BufferGeometry[]): THREE.Buffer
     return geometries[0];
   }
 
-  // This is a placeholder implementation
-  // In a real project, use THREE.BufferGeometryUtils.mergeBufferGeometries
-  const mergedGeometry = geometries[0].clone();
-  mergedGeometry.userData = {
-    mergedGeometryCount: geometries.length,
-    mergedGeometrySource: 'buildingCSG',
-  };
+  // Create a new merged geometry
+  const mergedGeometry = new THREE.BufferGeometry();
+
+  // Track vertex counts to offset indices properly
+  let vertexCount = 0;
+  let indexCount = 0;
+
+  // Determine which attributes to include in the merged geometry
+  const attributes: Record<string, THREE.BufferAttribute[]> = {};
+
+  // First pass: count attributes and allocate space
+  geometries.forEach((geometry) => {
+    for (const name in geometry.attributes) {
+      if (!attributes[name]) {
+        attributes[name] = [];
+      }
+
+      attributes[name].push(geometry.attributes[name] as THREE.BufferAttribute);
+    }
+
+    // Track indices if they exist
+    if (geometry.index) {
+      indexCount += geometry.index.count;
+    } else {
+      indexCount += geometry.attributes.position.count;
+    }
+
+    vertexCount += geometry.attributes.position.count;
+  });
+
+  // Create a single buffer for each attribute
+  for (const name in attributes) {
+    const mergedAttribute = mergeBufferAttributes(attributes[name], vertexCount);
+    mergedGeometry.setAttribute(name, mergedAttribute);
+  }
+
+  // Merge indices
+  let indexOffset = 0;
+  const mergedIndices = new Uint32Array(indexCount);
+
+  geometries.forEach((geometry) => {
+    const positionCount = geometry.attributes.position.count;
+
+    if (geometry.index) {
+      // Copy and offset the indices
+      const indices = geometry.index.array;
+      for (let i = 0; i < indices.length; i++) {
+        mergedIndices[i + indexOffset] = indices[i] + vertexCount;
+      }
+      indexOffset += indices.length;
+    } else {
+      // Generate default indices
+      for (let i = 0; i < positionCount; i++) {
+        mergedIndices[i + indexOffset] = i + vertexCount;
+      }
+      indexOffset += positionCount;
+    }
+
+    vertexCount += positionCount;
+  });
+
+  mergedGeometry.setIndex(new THREE.BufferAttribute(mergedIndices, 1));
 
   return mergedGeometry;
+}
+
+/**
+ * Helper function to merge array of buffer attributes
+ */
+function mergeBufferAttributes(
+  attributes: THREE.BufferAttribute[],
+  arrayLength: number
+): THREE.BufferAttribute {
+  const array = new Float32Array(arrayLength * attributes[0].itemSize);
+  let offset = 0;
+
+  for (let i = 0; i < attributes.length; i++) {
+    const attribute = attributes[i];
+    array.set(attribute.array, offset);
+    offset += attribute.array.length;
+  }
+
+  return new THREE.BufferAttribute(array, attributes[0].itemSize);
 }
