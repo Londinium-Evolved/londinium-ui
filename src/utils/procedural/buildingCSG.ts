@@ -7,7 +7,31 @@ import * as THREE from 'three';
  *
  * Since THREE.js doesn't have built-in CSG operations, this module provides simplified
  * functions to simulate these operations for the procedural building generator.
+ *
+ * The implementation uses helper functions like addTranslatedGeometry to reduce
+ * code duplication when positioning and translating geometry objects.
  */
+
+/**
+ * Helper function to create, translate, and add a geometry to the target collection
+ *
+ * @param geometry THREE.BufferGeometry to translate and add
+ * @param x X-axis translation
+ * @param y Y-axis translation
+ * @param z Z-axis translation
+ * @param target Target array to add the geometry to
+ */
+function addTranslatedGeometry(
+  geometry: THREE.BufferGeometry,
+  x: number,
+  y: number,
+  z: number,
+  target: THREE.BufferGeometry[]
+): void {
+  const clone = geometry.clone();
+  clone.translate(x, y, z);
+  target.push(clone);
+}
 
 /**
  * Creates a hollow box by subtracting an inner box from an outer box
@@ -37,13 +61,11 @@ export function createHollowBox(
 
   // Front wall
   const frontWall = new THREE.BoxGeometry(outerWidth, outerHeight, wallThickness);
-  frontWall.translate(0, 0, outerDepth / 2 - wallThickness / 2);
-  geometries.push(frontWall);
+  addTranslatedGeometry(frontWall, 0, 0, outerDepth / 2 - wallThickness / 2, geometries);
 
   // Back wall
   const backWall = new THREE.BoxGeometry(outerWidth, outerHeight, wallThickness);
-  backWall.translate(0, 0, -outerDepth / 2 + wallThickness / 2);
-  geometries.push(backWall);
+  addTranslatedGeometry(backWall, 0, 0, -outerDepth / 2 + wallThickness / 2, geometries);
 
   // Left wall
   const leftWall = new THREE.BoxGeometry(
@@ -51,8 +73,7 @@ export function createHollowBox(
     outerHeight,
     outerDepth - wallThickness * 2
   );
-  leftWall.translate(-outerWidth / 2 + wallThickness / 2, 0, 0);
-  geometries.push(leftWall);
+  addTranslatedGeometry(leftWall, -outerWidth / 2 + wallThickness / 2, 0, 0, geometries);
 
   // Right wall
   const rightWall = new THREE.BoxGeometry(
@@ -60,19 +81,16 @@ export function createHollowBox(
     outerHeight,
     outerDepth - wallThickness * 2
   );
-  rightWall.translate(outerWidth / 2 - wallThickness / 2, 0, 0);
-  geometries.push(rightWall);
+  addTranslatedGeometry(rightWall, outerWidth / 2 - wallThickness / 2, 0, 0, geometries);
 
   // Floor
   const floor = new THREE.BoxGeometry(innerWidth, bottomThickness, innerDepth);
-  floor.translate(0, -outerHeight / 2 + bottomThickness / 2, 0);
-  geometries.push(floor);
+  addTranslatedGeometry(floor, 0, -outerHeight / 2 + bottomThickness / 2, 0, geometries);
 
   // Roof (optional)
   if (hasRoof) {
     const roof = new THREE.BoxGeometry(innerWidth, wallThickness, innerDepth);
-    roof.translate(0, outerHeight / 2 - wallThickness / 2, 0);
-    geometries.push(roof);
+    addTranslatedGeometry(roof, 0, outerHeight / 2 - wallThickness / 2, 0, geometries);
   }
 
   // Create a single merged geometry
@@ -104,8 +122,7 @@ export function createRomanAtrium(
   // Create the floor
   const floorThickness = 0.1;
   const floor = new THREE.BoxGeometry(width, floorThickness, depth);
-  floor.translate(0, -height / 2 + floorThickness / 2, 0);
-  geometries.push(floor);
+  addTranslatedGeometry(floor, 0, -height / 2 + floorThickness / 2, 0, geometries);
 
   // Create the compluvium (opening in the roof)
   const compluviumWidth = width * compluviumRatio;
@@ -117,13 +134,23 @@ export function createRomanAtrium(
 
   // Front roof segment
   const frontRoof = new THREE.BoxGeometry(width, roofThickness, (depth - compluviumDepth) / 2);
-  frontRoof.translate(0, height / 2 - roofThickness / 2, depth / 4 + compluviumDepth / 4);
-  geometries.push(frontRoof);
+  addTranslatedGeometry(
+    frontRoof,
+    0,
+    height / 2 - roofThickness / 2,
+    depth / 4 + compluviumDepth / 4,
+    geometries
+  );
 
   // Back roof segment
   const backRoof = new THREE.BoxGeometry(width, roofThickness, (depth - compluviumDepth) / 2);
-  backRoof.translate(0, height / 2 - roofThickness / 2, -depth / 4 - compluviumDepth / 4);
-  geometries.push(backRoof);
+  addTranslatedGeometry(
+    backRoof,
+    0,
+    height / 2 - roofThickness / 2,
+    -depth / 4 - compluviumDepth / 4,
+    geometries
+  );
 
   // Left roof segment
   const leftRoof = new THREE.BoxGeometry(
@@ -131,8 +158,13 @@ export function createRomanAtrium(
     roofThickness,
     compluviumDepth
   );
-  leftRoof.translate(-width / 4 - compluviumWidth / 4, height / 2 - roofThickness / 2, 0);
-  geometries.push(leftRoof);
+  addTranslatedGeometry(
+    leftRoof,
+    -width / 4 - compluviumWidth / 4,
+    height / 2 - roofThickness / 2,
+    0,
+    geometries
+  );
 
   // Right roof segment
   const rightRoof = new THREE.BoxGeometry(
@@ -140,8 +172,13 @@ export function createRomanAtrium(
     roofThickness,
     compluviumDepth
   );
-  rightRoof.translate(width / 4 + compluviumWidth / 4, height / 2 - roofThickness / 2, 0);
-  geometries.push(rightRoof);
+  addTranslatedGeometry(
+    rightRoof,
+    width / 4 + compluviumWidth / 4,
+    height / 2 - roofThickness / 2,
+    0,
+    geometries
+  );
 
   // Create the impluvium (basin under the compluvium)
   const impluviumWidth = compluviumWidth * 1.5;
@@ -149,8 +186,13 @@ export function createRomanAtrium(
   const impluviumHeight = 0.3;
 
   const impluvium = new THREE.BoxGeometry(impluviumWidth, impluviumHeight, impluviumDepth);
-  impluvium.translate(0, -height / 2 + impluviumHeight / 2 + floorThickness, 0);
-  geometries.push(impluvium);
+  addTranslatedGeometry(
+    impluvium,
+    0,
+    -height / 2 + impluviumHeight / 2 + floorThickness,
+    0,
+    geometries
+  );
 
   // Create columns around the perimeter
   const numColumnsWidth = Math.max(2, Math.floor(width / 2));
@@ -181,9 +223,13 @@ export function createRomanAtrium(
       const zPos = -depth / 2 + columnSpacingDepth * (d + 1);
 
       const columnInstance = cylinderGeometry.clone();
-      columnInstance.translate(xPos, -height / 2 + columnHeight / 2 + floorThickness, zPos);
-
-      geometries.push(columnInstance);
+      addTranslatedGeometry(
+        columnInstance,
+        xPos,
+        -height / 2 + columnHeight / 2 + floorThickness,
+        zPos,
+        geometries
+      );
       columnPositions.push(new THREE.Vector3(xPos, 0, zPos));
     }
   }
@@ -217,8 +263,7 @@ export function createRomanPeristyle(
   // Create the floor/garden area
   const floorThickness = 0.1;
   const floor = new THREE.BoxGeometry(width, floorThickness, depth);
-  floor.translate(0, -height / 2 + floorThickness / 2, 0);
-  geometries.push(floor);
+  addTranslatedGeometry(floor, 0, -height / 2 + floorThickness / 2, 0, geometries);
 
   // Create columns around the perimeter
   const columnInset = columnRadius * 3; // Inset from the edge
@@ -244,18 +289,24 @@ export function createRomanPeristyle(
 
     // Front row
     const frontColumn = cylinderGeometry.clone();
-    frontColumn.translate(
+    addTranslatedGeometry(
+      frontColumn,
       xPos,
       -height / 2 + columnHeight / 2 + floorThickness,
-      -perimeterDepth / 2
+      -perimeterDepth / 2,
+      geometries
     );
-    geometries.push(frontColumn);
     columnPositions.push(new THREE.Vector3(xPos, 0, -perimeterDepth / 2));
 
     // Back row
     const backColumn = cylinderGeometry.clone();
-    backColumn.translate(xPos, -height / 2 + columnHeight / 2 + floorThickness, perimeterDepth / 2);
-    geometries.push(backColumn);
+    addTranslatedGeometry(
+      backColumn,
+      xPos,
+      -height / 2 + columnHeight / 2 + floorThickness,
+      perimeterDepth / 2,
+      geometries
+    );
     columnPositions.push(new THREE.Vector3(xPos, 0, perimeterDepth / 2));
   }
 
@@ -265,22 +316,24 @@ export function createRomanPeristyle(
 
     // Left side
     const leftColumn = cylinderGeometry.clone();
-    leftColumn.translate(
+    addTranslatedGeometry(
+      leftColumn,
       -perimeterWidth / 2,
       -height / 2 + columnHeight / 2 + floorThickness,
-      zPos
+      zPos,
+      geometries
     );
-    geometries.push(leftColumn);
     columnPositions.push(new THREE.Vector3(-perimeterWidth / 2, 0, zPos));
 
     // Right side
     const rightColumn = cylinderGeometry.clone();
-    rightColumn.translate(
+    addTranslatedGeometry(
+      rightColumn,
       perimeterWidth / 2,
       -height / 2 + columnHeight / 2 + floorThickness,
-      zPos
+      zPos,
+      geometries
     );
-    geometries.push(rightColumn);
     columnPositions.push(new THREE.Vector3(perimeterWidth / 2, 0, zPos));
   }
 
@@ -294,8 +347,13 @@ export function createRomanPeristyle(
     gardenFeatureHeight,
     16
   );
-  gardenFeature.translate(0, -height / 2 + gardenFeatureHeight / 2 + floorThickness, 0);
-  geometries.push(gardenFeature);
+  addTranslatedGeometry(
+    gardenFeature,
+    0,
+    -height / 2 + gardenFeatureHeight / 2 + floorThickness,
+    0,
+    geometries
+  );
 
   return {
     geometry: mergeBufferGeometries(geometries),
