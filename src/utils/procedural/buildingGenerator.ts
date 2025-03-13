@@ -297,6 +297,69 @@ export function getBuildingConfig(
 }
 
 /**
+ * Creates materials used in Roman buildings with appropriate colors and textures
+ */
+function createRomanMaterials(config: BuildingConfig) {
+  return {
+    wallMaterial: config.material.clone(),
+    floorMaterial: new THREE.MeshStandardMaterial({
+      color: 0xd9c9a8,
+      roughness: 0.8,
+    }),
+    roofMaterial: new THREE.MeshStandardMaterial({
+      color: 0xa86f32,
+      roughness: 0.7,
+    }),
+    columnMaterial: new THREE.MeshStandardMaterial({
+      color: 0xe8e0d0,
+      roughness: 0.4,
+    }),
+  };
+}
+
+/**
+ * Calculate dimensions and position for a Roman atrium
+ */
+function setupAtrium(width: number, depth: number, height: number, random: RandomGenerator) {
+  const atriumWidthRatio = random.generateFloatBetween(0.4, 0.6);
+  const atriumDepthRatio = random.generateFloatBetween(0.3, 0.4);
+
+  const atriumWidth = width * atriumWidthRatio;
+  const atriumDepth = depth * atriumDepthRatio;
+  const atriumHeight = height * 0.9; // Slightly lower than the main building
+
+  // Position the atrium in the front portion of the domus
+  const position = new THREE.Vector3(
+    0,
+    0,
+    -depth / 4 // Front half of the building
+  );
+
+  return { atriumWidth, atriumDepth, atriumHeight, position };
+}
+
+/**
+ * Calculate dimensions and position for a Roman peristyle garden
+ */
+function setupPeristyle(width: number, depth: number, height: number, random: RandomGenerator) {
+  const peristyleWidthRatio = random.generateFloatBetween(0.5, 0.7);
+  const peristyleDepthRatio = random.generateFloatBetween(0.4, 0.5);
+
+  const peristyleWidth = width * peristyleWidthRatio;
+  const peristyleDepth = depth * peristyleDepthRatio;
+  const peristyleHeight = height * 0.85; // Lower than main building
+
+  // Position the peristyle in the rear portion of the domus
+  const position = new THREE.Vector3(
+    0,
+    0,
+    depth / 4 // Rear half of the building
+  );
+
+  return { peristyleWidth, peristyleDepth, peristyleHeight, position };
+}
+
+/**
  * Generates a historically accurate Roman domus (house) with
  * atrium, peristyle, and appropriate rooms based on archaeological evidence.
  */
@@ -311,19 +374,8 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
   const height = minH + random.generateFloatBetween(0, maxH - minH);
 
   // Create materials for different building elements
-  const wallMaterial = config.material.clone();
-  const floorMaterial = new THREE.MeshStandardMaterial({
-    color: 0xd9c9a8,
-    roughness: 0.8,
-  });
-  const roofMaterial = new THREE.MeshStandardMaterial({
-    color: 0xa86f32,
-    roughness: 0.7,
-  });
-  const columnMaterial = new THREE.MeshStandardMaterial({
-    color: 0xe8e0d0,
-    roughness: 0.4,
-  });
+  const { wallMaterial, floorMaterial, roofMaterial, columnMaterial } =
+    createRomanMaterials(config);
 
   // Create the base building structure
   const wallThickness = 0.2;
@@ -336,23 +388,13 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
     false // no roof yet
   );
 
-  // Determine the layout based on the seed
-  // Roman domus typically had an atrium followed by a peristyle garden
-
-  // Calculate sizes for atrium and peristyle
-  const atriumWidthRatio = random.generateFloatBetween(0.4, 0.6);
-  const atriumDepthRatio = random.generateFloatBetween(0.3, 0.4);
-
-  const atriumWidth = width * atriumWidthRatio;
-  const atriumDepth = depth * atriumDepthRatio;
-  const atriumHeight = height * 0.9; // Slightly lower than the main building
-
-  // Position the atrium in the front portion of the domus
-  const atriumPosition = new THREE.Vector3(
-    0,
-    0,
-    -depth / 4 // Front half of the building
-  );
+  // Set up atrium layout
+  const {
+    atriumWidth,
+    atriumDepth,
+    atriumHeight,
+    position: atriumPosition,
+  } = setupAtrium(width, depth, height, random);
 
   // Create the atrium
   const { geometry: atriumGeometry } = createRomanAtrium(
@@ -367,20 +409,13 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
   // Move the atrium to the correct position
   atriumGeometry.translate(atriumPosition.x, atriumPosition.y, atriumPosition.z);
 
-  // Calculate peristyle size and position (typically behind the atrium)
-  const peristyleWidthRatio = random.generateFloatBetween(0.5, 0.7);
-  const peristyleDepthRatio = random.generateFloatBetween(0.4, 0.5);
-
-  const peristyleWidth = width * peristyleWidthRatio;
-  const peristyleDepth = depth * peristyleDepthRatio;
-  const peristyleHeight = height * 0.85; // Lower than main building
-
-  // Position the peristyle in the rear portion of the domus
-  const peristylePosition = new THREE.Vector3(
-    0,
-    0,
-    depth / 4 // Rear half of the building
-  );
+  // Set up peristyle layout
+  const {
+    peristyleWidth,
+    peristyleDepth,
+    peristyleHeight,
+    position: peristylePosition,
+  } = setupPeristyle(width, depth, height, random);
 
   // Create the peristyle garden
   const { geometry: peristyleGeometry } = createRomanPeristyle(
