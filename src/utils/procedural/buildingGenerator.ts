@@ -465,8 +465,15 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
 
 /**
  * Helper function to merge multiple buffer geometries into one.
- * Based on THREE.BufferGeometryUtils.mergeGeometries but implemented directly
- * to avoid import issues with Jest and ESM modules.
+ *
+ * NOTE: We're using a custom implementation instead of THREE.BufferGeometryUtils.mergeGeometries
+ * for the following reasons:
+ * 1. The THREE.BufferGeometryUtils import (three/examples/jsm/utils/BufferGeometryUtils.js) causes errors
+ *    with Jest tests due to ESM module compatibility issues.
+ * 2. This custom implementation ensures consistent behavior in both development and testing environments.
+ * 3. It reduces external dependencies on the Three.js examples folder, which could change with different versions.
+ *
+ * See test file: src/tests/buffer-geometry-utils.test.ts for the error demonstration.
  */
 function mergeBufferGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
   if (geometries.length === 0) {
