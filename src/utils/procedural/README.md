@@ -1,104 +1,27 @@
-# Procedural Generation Architecture
+# Configuration-Based Procedural Building Generation
 
-This directory contains the core procedural generation algorithms for Londinium UI. These algorithms are responsible for creating historically accurate buildings, urban layouts, and citizens that can transform between Roman and Cyberpunk eras.
+This module provides a flexible, configuration-driven system for procedurally generating buildings in the Londinium project. It supports different building types, eras, and detailed customization through JSON configuration files.
 
-## Design Principles
+## Key Features
 
-1. **Deterministic Generation**: All procedural generation is seed-based to ensure reproducibility.
-2. **Era Parameterization**: Generation functions accept era parameters to produce appropriate outputs.
-3. **Performance Optimization**: Algorithms are designed for efficiency and can be offloaded to Web Workers.
-4. **Historical Accuracy**: Roman-era generation follows archaeological evidence, while Cyberpunk generation follows established genre conventions.
-5. **Configuration-Driven Architecture**: Building generation uses configuration objects to decouple parameters from generation logic.
-
-## Building Generation
-
-The building generation system creates structures appropriate to each era using a configuration-driven approach:
-
-### Configuration-Driven Architecture
-
-The building generator now uses a configuration-driven approach that decouples building parameters from generation logic. This enables:
-
-- **Enhanced Era Transitions**: Smooth interpolation between Roman and Cyberpunk building parameters
-- **Improved Maintainability**: Single source of truth for building parameters
-- **Reduced Code Duplication**: Generic generation functions that work with any building type
-- **Simplified Extension**: New building types only require configuration, not new functions
-
-Building configurations are defined as:
-
-```typescript
-interface BuildingConfig {
-  widthRange: [number, number];
-  depthRange: [number, number];
-  heightRange: [number, number];
-  material: THREE.MeshStandardMaterial;
-}
-
-// Example configuration for a Roman domus
-const domusConfig: BuildingConfig = {
-  widthRange: [5, 7],
-  depthRange: [7, 10],
-  heightRange: [3, 4],
-  material: new THREE.MeshStandardMaterial({ color: '#c9b18f' }),
-};
-```
-
-### Roman Era Buildings
-
-- **Domus**: Roman houses with atrium, peristyle, and compluvium
-
-  - Parameters: width range, depth range, height range, material
-  - Based on archaeological floor plans from Pompeii and Herculaneum
-
-- **Insula**: Multi-story apartment buildings
-  - Parameters: width range, depth range, height range, material
-  - Structural deterioration varies based on distance from city center
-
-### Cyberpunk Era Buildings
-
-- **Megacorp Tower**: Corporate headquarters
-
-  - Parameters: width range, depth range, height range, material with emissive properties
-  - Inspired by classic cyberpunk visual media
-
-- **Residential Stack**: High-density housing
-  - Parameters: width range, depth range, height range, material with emissive properties
-  - Based on cyberpunk literary descriptions
-
-## Urban Layout Generation
-
-The urban layout system determines the placement of buildings and streets:
-
-### Roman Era Layout
-
-- Grid pattern streets (cardines and decumani)
-- Public buildings positioned according to Roman city planning principles
-- Centuriation grid patterns for settlement layouts
-
-### Cyberpunk Era Layout
-
-- Corporate structures dominate central urban areas
-- Residential zones pushed to periphery
-- Pronounced vertical social stratification
-- Neo-brutalist architectural influence
-
-## Era Transition System
-
-The transition system morphs buildings and urban layouts between eras:
-
-- **Configuration Interpolation**: Linear interpolation between Roman and Cyberpunk configurations
-- **Parameter Blending**: Smooth transitions for width, depth, height, and other parameters
-- **Material Transitions**: Switching between era-appropriate materials based on progress
-- Geometry morphing with vertex interpolation
-- Resource system evolution (Roman: Food, Wood, Stone, Metal → Cyberpunk: Energy, Cybernetic Components, Data)
-- Building functionality preservation with technology evolution
+- **Configuration-Driven Generation**: Buildings are generated based on detailed configuration objects
+- **JSON Configuration Loading**: Load building configurations from external JSON files
+- **Era-Specific Configurations**: Different configurations for Roman and Cyberpunk eras
+- **Transition Support**: Smooth interpolation between era configurations
+- **Performance Optimization**: Configurable level of detail (LOD) generation
 
 ## Usage
 
-```typescript
-import { generateBuildingGeometry, getBuildingConfig } from './buildingGenerator';
+### Basic Usage
 
-// Generate a Roman-era building
-const romanBuilding = generateBuildingGeometry({
+```typescript
+import { generateBuildingGeometry, initializeConfigurationSystem } from './buildingGenerator';
+
+// Initialize the configuration system
+initializeConfigurationSystem();
+
+// Generate a building
+const buildingData = generateBuildingGeometry({
   position: [0, 0, 0],
   rotation: 0,
   scale: [1, 1, 1],
@@ -107,38 +30,132 @@ const romanBuilding = generateBuildingGeometry({
   seed: 12345,
 });
 
-// Generate a Cyberpunk-era building
-const cyberpunkBuilding = generateBuildingGeometry({
-  position: [0, 0, 0],
-  rotation: 0,
-  scale: [1, 1, 1],
-  type: 'megacorp-tower',
-  era: 'cyberpunk',
-  seed: 12345,
-});
-
-// Get a configuration for a transitional building (50% between eras)
-const transitionalConfig = getBuildingConfig('insula', 'roman', 0.5);
+// Create a mesh with the generated geometry
+const buildingMesh = new THREE.Mesh(buildingData.geometry, buildingData.materials);
 ```
 
-## Era Transition Testing
-
-You can test the era transition system using the provided demo functions:
+### Loading Custom Configurations
 
 ```typescript
-import { testBuildingTransition } from './buildingTransitionDemo';
+import { loadBuildingConfigurationsFromJSON } from './buildingGenerator';
 
-// Test the transition for a specific building type
-testBuildingTransition('domus');
-
-// This will output the dimensions and materials for buildings at different
-// era transition progress points from 0 (Roman) to 1 (Cyberpunk)
+// Load configurations from a JSON file
+await loadBuildingConfigurationsFromJSON('/assets/configs/buildings.json');
 ```
 
-## Worker Integration
+## Configuration Schema
 
-For complex generation tasks, use the Web Worker system:
+Building configurations follow this structure:
 
+```typescript
+interface BuildingConfig {
+  // Basic dimensions
+  widthRange: [number, number];
+  depthRange: [number, number];
+  heightRange: [number, number];
+  material: THREE.MeshStandardMaterial;
+
+  // Enhanced features
+  features?: {
+    windows?: {
+      enabled: boolean;
+      density: number;
+      size: [number, number];
+      style: 'roman' | 'cyberpunk' | 'modern';
+    };
+    doors?: {
+      width: number;
+      height: number;
+      position: 'center' | 'offset';
+      style: 'roman' | 'cyberpunk' | 'modern';
+    };
+    roof?: {
+      style: 'flat' | 'peaked' | 'domed';
+      height: number;
+      overhang: number;
+    };
+    decoration?: {
+      level: number;
+      style: 'roman' | 'cyberpunk' | 'modern';
+    };
+  };
+
+  // Structural variations
+  variations?: {
+    wallThickness?: number;
+    floorThickness?: number;
+    columnDensity?: number;
+    roomDivisions?: number;
+  };
+
+  // Performance settings
+  performance?: {
+    detailLevel?: number;
+    maxVertices?: number;
+    textureResolution?: 'low' | 'medium' | 'high';
+  };
+}
 ```
 
+## JSON Configuration Format
+
+JSON configuration files should follow this structure:
+
+```json
+{
+  "buildingTypes": {
+    "domus": {
+      "roman": {
+        "widthRange": [5, 7],
+        "depthRange": [7, 10],
+        "heightRange": [3, 4],
+        "material": {
+          "color": "#c9b18f",
+          "roughness": 0.6,
+          "metalness": 0.1
+        },
+        "features": {
+          "windows": {
+            "enabled": true,
+            "density": 0.3,
+            "size": [0.5, 0.8],
+            "style": "roman"
+          }
+          // ... other features
+        }
+        // ... other configuration properties
+      },
+      "cyberpunk": {
+        // ... cyberpunk era configuration
+      }
+    }
+    // ... other building types
+  },
+  "version": "1.0.0",
+  "lastUpdated": "2025-03-12T12:00:00Z"
+}
 ```
+
+## Components
+
+The system includes React components for easy integration:
+
+- `BuildingGenerator`: A component that generates a single building
+- `BuildingShowcase`: A component that displays a grid of buildings with different configurations
+
+## Architecture
+
+The system consists of several key modules:
+
+- `buildingGenerator.ts`: Main generation logic and API
+- `buildingCSG.ts`: Constructive solid geometry utilities
+- `configurationLoader.ts`: Configuration loading and management
+- `buildingLOD.ts`: Level of detail generation
+
+## Future Enhancements
+
+- Support for more building types and eras
+- Advanced material configuration with textures
+- Procedural interior generation
+- Runtime configuration editing
+- Performance profiling and optimization

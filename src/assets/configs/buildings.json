@@ -1,0 +1,181 @@
+{
+  "buildingTypes": {
+    "domus": {
+      "roman": {
+        "widthRange": [5, 7],
+        "depthRange": [7, 10],
+        "heightRange": [3, 4],
+        "material": {
+          "color": "#c9b18f",
+          "roughness": 0.6,
+          "metalness": 0.1
+        },
+        "features": {
+          "windows": {
+            "enabled": true,
+            "density": 0.3,
+            "size": [0.5, 0.8],
+            "style": "roman"
+          },
+          "doors": {
+            "width": 1.2,
+            "height": 2.2,
+            "position": "center",
+            "style": "roman"
+          },
+          "roof": {
+            "style": "peaked",
+            "height": 0.3,
+            "overhang": 0.4
+          },
+          "decoration": {
+            "level": 0.7,
+            "style": "roman"
+          }
+        },
+        "variations": {
+          "wallThickness": 0.2,
+          "floorThickness": 0.2,
+          "columnDensity": 0.8,
+          "roomDivisions": 5
+        },
+        "performance": {
+          "detailLevel": 0.8,
+          "textureResolution": "medium"
+        }
+      },
+      "cyberpunk": {
+        "widthRange": [5, 7],
+        "depthRange": [7, 10],
+        "heightRange": [10, 15],
+        "material": {
+          "color": "#333344",
+          "roughness": 0.4,
+          "metalness": 0.6,
+          "emissive": "#3377ff",
+          "emissiveIntensity": 0.2
+        },
+        "features": {
+          "windows": {
+            "enabled": true,
+            "density": 0.6,
+            "size": [0.4, 0.6],
+            "style": "cyberpunk"
+          },
+          "doors": {
+            "width": 1.5,
+            "height": 2.5,
+            "position": "offset",
+            "style": "cyberpunk"
+          },
+          "roof": {
+            "style": "flat",
+            "height": 0.1,
+            "overhang": 0.1
+          },
+          "decoration": {
+            "level": 0.5,
+            "style": "cyberpunk"
+          }
+        },
+        "variations": {
+          "wallThickness": 0.3,
+          "floorThickness": 0.3
+        },
+        "performance": {
+          "detailLevel": 0.7,
+          "textureResolution": "high"
+        }
+      }
+    },
+    "insula": {
+      "roman": {
+        "widthRange": [8, 12],
+        "depthRange": [8, 12],
+        "heightRange": [8, 11],
+        "material": {
+          "color": "#d1bc9e",
+          "roughness": 0.7,
+          "metalness": 0.1
+        },
+        "features": {
+          "windows": {
+            "enabled": true,
+            "density": 0.5,
+            "size": [0.6, 0.9],
+            "style": "roman"
+          },
+          "doors": {
+            "width": 1.0,
+            "height": 2.0,
+            "position": "center",
+            "style": "roman"
+          },
+          "roof": {
+            "style": "flat",
+            "height": 0.1,
+            "overhang": 0.2
+          },
+          "decoration": {
+            "level": 0.3,
+            "style": "roman"
+          }
+        },
+        "variations": {
+          "wallThickness": 0.3,
+          "floorThickness": 0.3,
+          "roomDivisions": 12
+        },
+        "performance": {
+          "detailLevel": 0.6,
+          "textureResolution": "medium"
+        }
+      },
+      "cyberpunk": {
+        "widthRange": [8, 12],
+        "depthRange": [8, 12],
+        "heightRange": [20, 30],
+        "material": {
+          "color": "#2c2c34",
+          "roughness": 0.5,
+          "metalness": 0.4,
+          "emissive": "#ff6060",
+          "emissiveIntensity": 0.1
+        },
+        "features": {
+          "windows": {
+            "enabled": true,
+            "density": 0.8,
+            "size": [0.4, 0.4],
+            "style": "cyberpunk"
+          },
+          "doors": {
+            "width": 1.0,
+            "height": 2.0,
+            "position": "offset",
+            "style": "cyberpunk"
+          },
+          "roof": {
+            "style": "flat",
+            "height": 0.1,
+            "overhang": 0.1
+          },
+          "decoration": {
+            "level": 0.4,
+            "style": "cyberpunk"
+          }
+        },
+        "variations": {
+          "wallThickness": 0.2,
+          "floorThickness": 0.3
+        },
+        "performance": {
+          "detailLevel": 0.5,
+          "textureResolution": "medium"
+        }
+      }
+    }
+  },
+  "version": "1.0.0",
+  "lastUpdated": "2025-03-12T12:00:00Z"
+}
