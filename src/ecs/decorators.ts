@@ -6,8 +6,14 @@ import { ComponentType } from './types';
  * @returns A decorator function that sets the component type
  */
 export function component(type: ComponentType) {
-  return function <T extends new (...args: unknown[]) => object>(constructor: T) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function <T extends new (...args: any[]) => object>(constructor: T) {
     return class extends constructor {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      constructor(...args: any[]) {
+        super(...args);
+      }
+
       readonly type = type;
     };
   };

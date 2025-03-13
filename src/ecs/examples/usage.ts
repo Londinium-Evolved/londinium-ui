@@ -1,6 +1,5 @@
 import { EntityManager } from '../EntityManager';
 import { SystemManager } from '../SystemManager';
-import { Component } from '../types';
 import {
   LightComponent,
   ModelComponent,
@@ -29,19 +28,16 @@ export function ecsExample(): void {
 
   // Player entity
   const playerId = entityManager.createEntity();
-  entityManager.addComponent(playerId, new PositionComponent(0, 1, 0) as unknown as Component);
-  entityManager.addComponent(playerId, new RotationComponent() as unknown as Component);
-  entityManager.addComponent(playerId, new ScaleComponent(1, 1, 1) as unknown as Component);
-  entityManager.addComponent(playerId, new VelocityComponent(0, 0, 1) as unknown as Component);
-  entityManager.addComponent(playerId, new ModelComponent('player') as unknown as Component);
+  entityManager.addComponent(playerId, new PositionComponent(0, 1, 0));
+  entityManager.addComponent(playerId, new RotationComponent());
+  entityManager.addComponent(playerId, new ScaleComponent(1, 1, 1));
+  entityManager.addComponent(playerId, new VelocityComponent(0, 0, 1));
+  entityManager.addComponent(playerId, new ModelComponent('player'));
 
   // Light entity
   const lightId = entityManager.createEntity();
-  entityManager.addComponent(lightId, new PositionComponent(5, 5, 5) as unknown as Component);
-  entityManager.addComponent(
-    lightId,
-    new LightComponent('point', '#ffffff', 1.5, 20) as unknown as Component
-  );
+  entityManager.addComponent(lightId, new PositionComponent(5, 5, 5));
+  entityManager.addComponent(lightId, new LightComponent('point', '#ffffff', 1.5, 20));
 
   // Simulate game loop
   let time = 0;
