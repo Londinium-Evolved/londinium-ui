@@ -9,25 +9,12 @@ import {
   getBuildingConfigFromLoader,
 } from '../../utils/procedural/configurationLoader';
 import { initializeConfigurationSystem } from '../../utils/procedural/buildingGenerator';
+import { RandomGenerator, createSeededGenerator } from '../../utils/random/randomGenerator';
 
-// Simple seeded random number generator
-class RandomGenerator {
-  private seed: number;
-
-  constructor(seed: number) {
-    this.seed = seed;
-  }
-
-  // Generate a random float between min and max
-  generateFloatBetween(min: number, max: number): number {
-    // Simple implementation of a seeded random
-    const x = Math.sin(this.seed++) * 10000;
-    const random = x - Math.floor(x);
-    return min + random * (max - min);
-  }
-}
-
-interface ConfigurableBuildingProps {
+/**
+ * Props for the BuildingRenderer component
+ */
+interface BuildingRendererProps {
   buildingType: BuildingType;
   era: Era;
   position?: [number, number, number];
@@ -36,9 +23,9 @@ interface ConfigurableBuildingProps {
 }
 
 /**
- * Component that renders a building based on configuration
+ * Component that renders a 3D building based on configuration
  */
-const ConfigurableBuilding: React.FC<ConfigurableBuildingProps> = ({
+const BuildingRenderer: React.FC<BuildingRendererProps> = ({
   buildingType,
   era,
   position = [0, 0, 0],
@@ -60,7 +47,7 @@ const ConfigurableBuilding: React.FC<ConfigurableBuildingProps> = ({
     // Use stored dimensions or generate new ones if they don't exist
     if (!dimensionsRef.current) {
       // Create a seeded random generator
-      const rng = new RandomGenerator(seed);
+      const rng = createSeededGenerator(seed);
 
       // Generate the building dimensions
       const width = Math.floor(
@@ -112,6 +99,139 @@ const ConfigurableBuilding: React.FC<ConfigurableBuildingProps> = ({
 };
 
 /**
+ * Props for the BuildingScene component
+ */
+interface BuildingSceneProps {
+  buildingType: BuildingType;
+  era: Era;
+  seed: number;
+}
+
+/**
+ * Component that sets up the 3D scene for a building
+ */
+const BuildingScene: React.FC<BuildingSceneProps> = ({ buildingType, era, seed }) => {
+  return (
+    <div style={{ width: '100%', height: '400px' }}>
+      <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[10, 10, 5]} intensity={1} />
+        <BuildingRenderer buildingType={buildingType} era={era} seed={seed} />
+        <OrbitControls />
+        <gridHelper args={[50, 50]} />
+        <axesHelper args={[5]} />
+      </Canvas>
+    </div>
+  );
+};
+
+/**
+ * Props for the BuildingControls component
+ */
+interface BuildingControlsProps {
+  buildingType: BuildingType;
+  era: Era;
+  buildingTypes: BuildingType[];
+  eras: Era[];
+  onBuildingTypeChange: (type: BuildingType) => void;
+  onEraChange: (era: Era) => void;
+  onRegenerate: () => void;
+}
+
+/**
+ * Component for building selection and controls
+ */
+const BuildingControls: React.FC<BuildingControlsProps> = ({
+  buildingType,
+  era,
+  buildingTypes,
+  eras,
+  onBuildingTypeChange,
+  onEraChange,
+  onRegenerate,
+}) => {
+  return (
+    <div className='space-y-4'>
+      <div className='flex gap-4 mb-4'>
+        <div>
+          <label className='block mb-2'>Building Type:</label>
+          <select
+            className='p-2 border rounded'
+            value={buildingType}
+            onChange={(e) => onBuildingTypeChange(e.target.value as BuildingType)}>
+            {buildingTypes.map((type) => (
+              <option key={type} value={type}>
+                {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className='block mb-2'>Era:</label>
+          <select
+            className='p-2 border rounded'
+            value={era}
+            onChange={(e) => onEraChange(e.target.value as Era)}>
+            {eras.map((era) => (
+              <option key={era} value={era}>
+                {era.charAt(0).toUpperCase() + era.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <button
+        onClick={onRegenerate}
+        className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600'>
+        Regenerate Building
+      </button>
+    </div>
+  );
+};
+
+/**
+ * Props for the BuildingConfigDisplay component
+ */
+interface BuildingConfigDisplayProps {
+  buildingType: BuildingType;
+  era: Era;
+}
+
+/**
+ * Component to display configuration details
+ */
+const BuildingConfigDisplay: React.FC<BuildingConfigDisplayProps> = ({ buildingType, era }) => {
+  return (
+    <div className='mt-4'>
+      <h3 className='text-xl font-semibold mb-2'>Configuration Details</h3>
+      <pre className='bg-gray-100 p-4 rounded overflow-auto max-h-60'>
+        {JSON.stringify(
+          getBuildingConfigFromLoader(buildingType, era),
+          (key, value) => {
+            // Handle THREE.js objects for display
+            if (value instanceof THREE.Material) {
+              const material = value as THREE.MeshStandardMaterial;
+              return {
+                type: material.type,
+                color: material.color ? '#' + material.color.getHexString() : undefined,
+                emissive: material.emissive ? '#' + material.emissive.getHexString() : undefined,
+                roughness: material.roughness,
+                metalness: material.metalness,
+                emissiveIntensity: material.emissiveIntensity,
+              };
+            }
+            return value;
+          },
+          2
+        )}
+      </pre>
+    </div>
+  );
+};
+
+/**
  * Component that showcases a configurable building
  */
 const ConfigurableBuildingShowcase: React.FC<{
@@ -126,16 +246,7 @@ const ConfigurableBuildingShowcase: React.FC<{
 
   return (
     <div className='space-y-4'>
-      <div style={{ width: '100%', height: '400px' }}>
-        <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[10, 10, 5]} intensity={1} />
-          <ConfigurableBuilding buildingType={buildingType} era={era} seed={seed} />
-          <OrbitControls />
-          <gridHelper args={[50, 50]} />
-          <axesHelper args={[5]} />
-        </Canvas>
-      </div>
+      <BuildingScene buildingType={buildingType} era={era} seed={seed} />
       <button
         onClick={regenerateBuilding}
         className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600'>
@@ -146,11 +257,12 @@ const ConfigurableBuildingShowcase: React.FC<{
 };
 
 /**
- * Component that allows selecting and generating buildings from configurations
+ * Main component that allows selecting and generating buildings from configurations
  */
 const ConfigurableBuildingGenerator: React.FC = () => {
   const [selectedType, setSelectedType] = useState<BuildingType>('domus');
   const [selectedEra, setSelectedEra] = useState<Era>('roman');
+  const [seed, setSeed] = useState<number>(12345);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -188,6 +300,18 @@ const ConfigurableBuildingGenerator: React.FC = () => {
 
   const eras: Era[] = ['roman', 'cyberpunk'];
 
+  const handleBuildingTypeChange = (type: BuildingType) => {
+    setSelectedType(type);
+  };
+
+  const handleEraChange = (era: Era) => {
+    setSelectedEra(era);
+  };
+
+  const handleRegenerate = () => {
+    setSeed(Math.floor(Math.random() * 100000));
+  };
+
   if (isLoading) {
     return <div>Loading building configurations...</div>;
   }
@@ -196,7 +320,7 @@ const ConfigurableBuildingGenerator: React.FC = () => {
     return (
       <div>
         <p className='text-red-500'>{error}</p>
-        <ConfigurableBuildingShowcase buildingType={selectedType} era={selectedEra} />
+        <BuildingScene buildingType={selectedType} era={selectedEra} seed={seed} />
       </div>
     );
   }
@@ -205,62 +329,19 @@ const ConfigurableBuildingGenerator: React.FC = () => {
     <div className='p-4'>
       <h2 className='text-2xl font-bold mb-4'>Configurable Building Generator</h2>
 
-      <div className='flex gap-4 mb-4'>
-        <div>
-          <label className='block mb-2'>Building Type:</label>
-          <select
-            className='p-2 border rounded'
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value as BuildingType)}>
-            {buildingTypes.map((type) => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
-              </option>
-            ))}
-          </select>
-        </div>
+      <BuildingControls
+        buildingType={selectedType}
+        era={selectedEra}
+        buildingTypes={buildingTypes}
+        eras={eras}
+        onBuildingTypeChange={handleBuildingTypeChange}
+        onEraChange={handleEraChange}
+        onRegenerate={handleRegenerate}
+      />
 
-        <div>
-          <label className='block mb-2'>Era:</label>
-          <select
-            className='p-2 border rounded'
-            value={selectedEra}
-            onChange={(e) => setSelectedEra(e.target.value as Era)}>
-            {eras.map((era) => (
-              <option key={era} value={era}>
-                {era.charAt(0).toUpperCase() + era.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <BuildingScene buildingType={selectedType} era={selectedEra} seed={seed} />
 
-      <ConfigurableBuildingShowcase buildingType={selectedType} era={selectedEra} />
-
-      <div className='mt-4'>
-        <h3 className='text-xl font-semibold mb-2'>Configuration Details</h3>
-        <pre className='bg-gray-100 p-4 rounded overflow-auto max-h-60'>
-          {JSON.stringify(
-            getBuildingConfigFromLoader(selectedType, selectedEra),
-            (key, value) => {
-              // Handle THREE.js objects for display
-              if (value instanceof THREE.Material) {
-                const material = value as THREE.MeshStandardMaterial;
-                return {
-                  type: material.type,
-                  color: material.color ? '#' + material.color.getHexString() : undefined,
-                  emissive: material.emissive ? '#' + material.emissive.getHexString() : undefined,
-                  roughness: material.roughness,
-                  metalness: material.metalness,
-                  emissiveIntensity: material.emissiveIntensity,
-                };
-              }
-              return value;
-            },
-            2
-          )}
-        </pre>
-      </div>
+      <BuildingConfigDisplay buildingType={selectedType} era={selectedEra} />
     </div>
   );
 };
