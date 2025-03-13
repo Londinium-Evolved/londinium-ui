@@ -7,6 +7,7 @@ import {
   createRomanPeristyle,
   createRomanRoof,
 } from './buildingCSG';
+import { ConfigurationLoader, initializeConfigurationLoader } from './configurationLoader';
 
 // Simple random number generator class since THREE.MathUtils.Random doesn't exist
 class RandomGenerator {
@@ -58,6 +59,43 @@ export interface BuildingConfig {
   depthRange: [number, number];
   heightRange: [number, number];
   material: THREE.MeshStandardMaterial;
+  // Enhanced configuration properties
+  features?: {
+    windows?: {
+      enabled: boolean;
+      density: number; // Windows per wall unit
+      size: [number, number]; // Width, height
+      style: 'roman' | 'cyberpunk' | 'modern';
+    };
+    doors?: {
+      width: number;
+      height: number;
+      position: 'center' | 'offset';
+      style: 'roman' | 'cyberpunk' | 'modern';
+    };
+    roof?: {
+      style: 'flat' | 'peaked' | 'domed';
+      height: number; // As a ratio of building height
+      overhang: number;
+    };
+    decoration?: {
+      level: number; // 0-1 scale of decoration amount
+      style: 'roman' | 'cyberpunk' | 'modern';
+    };
+  };
+  // Structural variations
+  variations?: {
+    wallThickness?: number;
+    floorThickness?: number;
+    columnDensity?: number; // For buildings with columns
+    roomDivisions?: number; // Number of interior rooms
+  };
+  // Performance settings
+  performance?: {
+    detailLevel?: number; // 0-1 scale affecting geometry complexity
+    maxVertices?: number; // Optional vertex budget
+    textureResolution?: 'low' | 'medium' | 'high';
+  };
 }
 
 // Unified configuration object with nested era configurations
@@ -69,6 +107,40 @@ const buildingConfigs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: 
         depthRange: [7, 10],
         heightRange: [3, 4],
         material: new THREE.MeshStandardMaterial({ color: '#c9b18f' }),
+        // Add enhanced configuration for Roman domus
+        features: {
+          windows: {
+            enabled: true,
+            density: 0.3,
+            size: [0.5, 0.8],
+            style: 'roman',
+          },
+          doors: {
+            width: 1.2,
+            height: 2.2,
+            position: 'center',
+            style: 'roman',
+          },
+          roof: {
+            style: 'peaked',
+            height: 0.3,
+            overhang: 0.4,
+          },
+          decoration: {
+            level: 0.7,
+            style: 'roman',
+          },
+        },
+        variations: {
+          wallThickness: 0.2,
+          floorThickness: 0.2,
+          columnDensity: 0.8,
+          roomDivisions: 5,
+        },
+        performance: {
+          detailLevel: 0.8,
+          textureResolution: 'medium',
+        },
       },
       cyberpunk: {
         widthRange: [0, 0],
@@ -225,6 +297,40 @@ const buildingConfigs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: 
     },
   };
 
+// Initialize the configuration loader with default configurations
+let configurationLoaderInitialized = false;
+
+/**
+ * Initialize the configuration system with the default building configurations
+ */
+export function initializeConfigurationSystem(): void {
+  if (!configurationLoaderInitialized) {
+    initializeConfigurationLoader(buildingConfigs);
+    configurationLoaderInitialized = true;
+  }
+}
+
+/**
+ * Load building configurations from a JSON file
+ * @param configPath Path to the configuration JSON file
+ */
+export async function loadBuildingConfigurationsFromJSON(
+  configPath: string = '/assets/configs/buildings.json'
+): Promise<void> {
+  try {
+    // Initialize if not already initialized
+    if (!configurationLoaderInitialized) {
+      initializeConfigurationSystem();
+    }
+
+    const loader = ConfigurationLoader.getInstance();
+    await loader.loadConfigurationsFromJSON(configPath);
+    console.log('Building configurations loaded successfully');
+  } catch (error) {
+    console.error('Failed to load building configurations:', error);
+  }
+}
+
 /**
  * Generic building generator function that uses configuration to generate building geometry
  */
@@ -285,15 +391,24 @@ export function getBuildingConfig(
   era: Era,
   eraProgress: number = 0
 ): BuildingConfig {
-  const { roman, cyberpunk } = buildingConfigs[type];
+  // Initialize configuration system if not already done
+  if (!configurationLoaderInitialized) {
+    initializeConfigurationSystem();
+  }
+
+  const loader = ConfigurationLoader.getInstance();
+
+  // Get configurations from the loader
+  const romanConfig = loader.getConfiguration(type, 'roman');
+  const cyberpunkConfig = loader.getConfiguration(type, 'cyberpunk');
 
   // If we're in a transitional state (eraProgress > 0), interpolate between configurations
   if (eraProgress > 0) {
-    return interpolateConfig(roman, cyberpunk, eraProgress);
+    return interpolateConfig(romanConfig, cyberpunkConfig, eraProgress);
   }
 
   // Otherwise, just return the config for the current era
-  return era === 'roman' ? roman : cyberpunk;
+  return era === 'roman' ? romanConfig : cyberpunkConfig;
 }
 
 /**
@@ -377,14 +492,17 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
   const { wallMaterial, floorMaterial, roofMaterial, columnMaterial } =
     createRomanMaterials(config);
 
+  // Get wall and floor thickness from configuration if available
+  const wallThickness = config.variations?.wallThickness ?? 0.2;
+  const floorThickness = config.variations?.floorThickness ?? 0.2;
+
   // Create the base building structure
-  const wallThickness = 0.2;
   const baseGeometry = createHollowBox(
     width,
     height,
     depth,
     wallThickness,
-    0.2, // floor thickness
+    floorThickness,
     false // no roof yet
   );
 
@@ -396,14 +514,21 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
     position: atriumPosition,
   } = setupAtrium(width, depth, height, random);
 
+  // Get column parameters from configuration if available
+  const columnRadius = 0.15; // Default value
+  const columnHeight = height * 0.8; // Default value
+
+  // Get compluvium ratio from configuration if available
+  const compluviumRatio = random.generateFloatBetween(0.15, 0.25);
+
   // Create the atrium
   const { geometry: atriumGeometry } = createRomanAtrium(
     atriumWidth,
     atriumHeight,
     atriumDepth,
-    0.15, // column radius
-    height * 0.8, // column height
-    random.generateFloatBetween(0.15, 0.25) // compluvium ratio
+    columnRadius,
+    columnHeight,
+    compluviumRatio
   );
 
   // Move the atrium to the correct position
@@ -422,20 +547,23 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
     peristyleWidth,
     peristyleHeight,
     peristyleDepth,
-    0.15, // column radius
-    height * 0.75 // column height
+    columnRadius,
+    columnHeight * 0.94 // Slightly shorter columns in peristyle
   );
 
   // Move the peristyle to the correct position
   peristyleGeometry.translate(peristylePosition.x, peristylePosition.y, peristylePosition.z);
 
+  // Get roof parameters from configuration if available
+  const roofHeight =
+    config.features?.roof?.height !== undefined
+      ? height * config.features.roof.height
+      : height * 0.3; // Default peak height
+
+  const roofOverhang = config.features?.roof?.overhang ?? 0.4;
+
   // Create a roof for the domus
-  const roofGeometry = createRomanRoof(
-    width,
-    depth,
-    height * 0.3, // peak height
-    0.4 // overhang
-  );
+  const roofGeometry = createRomanRoof(width, depth, roofHeight, roofOverhang);
 
   // Position the roof at the top of the walls
   roofGeometry.translate(0, height / 2, 0);
@@ -446,8 +574,12 @@ function generateRomanDomus(random: RandomGenerator, config: BuildingConfig): Bu
   // Create the final geometry by merging all parts
   const mergedGeometry = mergeBufferGeometries(geometries);
 
+  // Get detail level from configuration if available
+  const detailLevel = config.performance?.detailLevel ?? 1.0;
+  const lodLevels = Math.max(1, Math.round(3 * detailLevel));
+
   // Generate LOD versions of the building
-  const lodGeometries = generateLODGeometries(mergedGeometry, random);
+  const lodGeometries = generateLODGeometries(mergedGeometry, random, lodLevels);
 
   // Store the LOD geometries in the userData for later retrieval
   mergedGeometry.userData = {
@@ -493,7 +625,6 @@ function mergeBufferGeometries(geometries: THREE.BufferGeometry[]): THREE.Buffer
 
   // Determine which attributes to include in the merged geometry
   const attributes: Record<string, THREE.BufferAttribute[]> = {};
-  let mergedIndex: number[] = [];
 
   // First pass: count attributes and allocate space
   geometries.forEach((geometry) => {
@@ -683,13 +814,4 @@ export const generateBuildingGeometry = (params: BuildingParams): BuildingMeshDa
   };
 
   return buildingData;
-};
-
-/**
- * Creates a default building when no valid configuration is found
- */
-const generateDefaultBuilding = (): BuildingMeshData => {
-  const geometry = new THREE.BoxGeometry(5, 5, 5);
-  const materials = [new THREE.MeshStandardMaterial({ color: '#888888' })];
-  return { geometry, materials, type: 'domus' };
 };

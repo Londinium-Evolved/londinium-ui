@@ -252,7 +252,7 @@ describe('Procedural Building Generation', () => {
 
       // Verify that LOD geometries are properly generated
       if (geometry.userData?.lodGeometries) {
-        const lodGeometries = geometry.userData.lodGeometries;
+        const { lodGeometries } = geometry.userData;
         // Should have multiple LOD levels
         expect(lodGeometries.length).toBeGreaterThanOrEqual(1);
         // Lower LODs should have fewer vertices

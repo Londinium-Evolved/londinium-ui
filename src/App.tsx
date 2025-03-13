@@ -51,8 +51,11 @@ const AppContent = observer(() => {
           </div>
 
           <div className='mb-4'>
-            <Link to='/demo' className='text-blue-300 underline'>
+            <Link to='/demo' className='text-blue-300 underline block mb-2'>
               View Demo
+            </Link>
+            <Link to='/building-generator' className='text-blue-300 underline block'>
+              Building Generator
             </Link>
           </div>
 
