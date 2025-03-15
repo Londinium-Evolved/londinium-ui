@@ -2,14 +2,17 @@ import { System } from '../System';
 import { EntityManager } from '../EntityManager';
 import * as THREE from 'three';
 import { EraTransitionComponent, Era } from '../components/EraTransitionComponent';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 // Define interface for materials that support morphing
 interface MorphableMaterial extends THREE.Material {
   morphTargets?: boolean;
 }
 
-// Component for GLB models with morphing capability
-interface GlbModelComponent {
+/**
+ * Component for GLB models with morphing capability
+ */
+export interface GlbModelComponent {
   type: string;
   romanModel?: THREE.Group;
   cyberpunkModel?: THREE.Group;
@@ -18,18 +21,22 @@ interface GlbModelComponent {
   romanModelUrl?: string;
   cyberpunkModelUrl?: string;
   isLoaded: boolean;
+  transitionProgress?: number;
 }
 
 /**
  * System that manages era transitions for GLB models
+ * This system uses logic consistent with the useModelLoader hook
  */
 export class ModelTransitionSystem extends System {
   private scene: THREE.Scene;
+  private gltfLoader: GLTFLoader;
 
   constructor(entityManager: EntityManager, scene: THREE.Scene) {
     super(entityManager);
     this.scene = scene;
     this.componentsRequired = ['eraTransition', 'glbModel'];
+    this.gltfLoader = new GLTFLoader();
   }
 
   /**
@@ -61,9 +68,13 @@ export class ModelTransitionSystem extends System {
         // Apply the transition to model morphing
         this.applyTransitionToModel(modelComponent, eraTransition.transitionProgress);
 
+        // Store progress for external access
+        modelComponent.transitionProgress = eraTransition.transitionProgress;
+
         // Handle transition completion
         if (isComplete) {
-          this.handleTransitionComplete(modelComponent, eraTransition.currentEra);
+          // We're not doing anything special on transition completion anymore
+          // as we're using the same approach as the useModelLoader hook
         }
       }
     }
@@ -75,10 +86,11 @@ export class ModelTransitionSystem extends System {
    * @param progress Transition progress from 0 (Roman) to 1 (Cyberpunk)
    */
   private applyTransitionToModel(modelComponent: GlbModelComponent, progress: number): void {
-    if (!modelComponent.activeModel) return;
+    // In ECS we primarily work with the romanModel as the base
+    if (!modelComponent.romanModel) return;
 
-    // Apply morph influence to each mesh in the model
-    modelComponent.activeModel.traverse((obj) => {
+    // Apply morph target influences to each mesh
+    modelComponent.romanModel.traverse((obj) => {
       if (
         obj instanceof THREE.Mesh &&
         obj.morphTargetInfluences &&
@@ -88,41 +100,6 @@ export class ModelTransitionSystem extends System {
         obj.morphTargetInfluences[0] = progress;
       }
     });
-
-    // Additional transition effects could be applied here:
-    // - Material transitions
-    // - Color shifts
-    // - Emission intensity
-  }
-
-  /**
-   * Handle the completion of a transition
-   * @param modelComponent The model component
-   * @param era The current era after transition
-   */
-  private handleTransitionComplete(modelComponent: GlbModelComponent, era: Era): void {
-    // Switch active model if needed
-    if (era === Era.Cyberpunk && modelComponent.cyberpunkModel) {
-      // If we have a separate cyberpunk model, we might want to switch to it
-      if (modelComponent.activeModel !== modelComponent.cyberpunkModel) {
-        if (modelComponent.activeModel) {
-          this.scene.remove(modelComponent.activeModel);
-        }
-        this.scene.add(modelComponent.cyberpunkModel);
-        modelComponent.activeModel = modelComponent.cyberpunkModel;
-      }
-    } else if (era === Era.Roman && modelComponent.romanModel) {
-      // Switch back to roman model
-      if (modelComponent.activeModel !== modelComponent.romanModel) {
-        if (modelComponent.activeModel) {
-          this.scene.remove(modelComponent.activeModel);
-        }
-        this.scene.add(modelComponent.romanModel);
-        modelComponent.activeModel = modelComponent.romanModel;
-      }
-    }
-
-    // Additional post-transition cleanup or effects
   }
 
   /**
@@ -150,33 +127,39 @@ export class ModelTransitionSystem extends System {
     modelComponent.cyberpunkModelUrl = cyberpunkUrl;
     modelComponent.isLoaded = false;
 
-    // Start loading models
-    // Note: In a real implementation, you'd use THREE.GLTFLoader
-    // This is a placeholder for the actual loading logic
-    Promise.all([this.loadModel(romanUrl), this.loadModel(cyberpunkUrl)])
+    // Get the current era from the transition component
+    const eraTransition = this.entityManager.getComponent<EraTransitionComponent>(
+      entityId,
+      'eraTransition'
+    );
+
+    const initialEra = eraTransition?.currentEra || Era.Roman;
+
+    // Load both models
+    Promise.all([this.loadGLTFModel(romanUrl), this.loadGLTFModel(cyberpunkUrl)])
       .then(([romanModel, cyberpunkModel]) => {
+        // Store the models
         modelComponent.romanModel = romanModel;
         modelComponent.cyberpunkModel = cyberpunkModel;
 
-        // Set the active model based on current era
-        const eraTransition = this.entityManager.getComponent<EraTransitionComponent>(
-          entityId,
-          'eraTransition'
-        );
+        // Set visibility based on era
+        romanModel.visible = initialEra === Era.Roman;
+        cyberpunkModel.visible = initialEra === Era.Cyberpunk;
 
-        if (eraTransition) {
-          const activeModel = eraTransition.currentEra === Era.Roman ? romanModel : cyberpunkModel;
-          modelComponent.activeModel = activeModel;
+        // Add the Roman model to the scene (we'll morph this one)
+        this.scene.add(romanModel);
+        modelComponent.activeModel = romanModel;
 
-          // Add the active model to the scene
-          this.scene.add(activeModel);
-        }
-
-        // Setup morphing between models
+        // Set up morph targets
         this.setupModelMorphing(modelComponent);
 
         // Mark as loaded
         modelComponent.isLoaded = true;
+
+        // Set initial morphing if needed
+        if (initialEra === Era.Cyberpunk && modelComponent.romanModel) {
+          this.applyTransitionToModel(modelComponent, 1);
+        }
       })
       .catch((error) => {
         console.error('Failed to load models:', error);
@@ -184,15 +167,24 @@ export class ModelTransitionSystem extends System {
   }
 
   /**
-   * Load a single GLB model
+   * Load a GLTF model using the GLTFLoader
    * @param url URL to the model
    * @returns Promise resolving to the loaded model
    */
-  private loadModel(url: string): Promise<THREE.Group> {
-    void url; // Mark parameter as used
-    // This is a placeholder for the actual loading logic
-    // In a real implementation, you'd use THREE.GLTFLoader
-    return Promise.resolve(new THREE.Group());
+  private loadGLTFModel(url: string): Promise<THREE.Group> {
+    return new Promise((resolve, reject) => {
+      this.gltfLoader.load(
+        url,
+        (gltf: { scene: THREE.Group }) => {
+          resolve(gltf.scene);
+        },
+        undefined,
+        (event: ErrorEvent) => {
+          console.error(`Error loading model from ${url}:`, event);
+          reject(new Error(`Failed to load model: ${event.message}`));
+        }
+      );
+    });
   }
 
   /**
@@ -204,81 +196,84 @@ export class ModelTransitionSystem extends System {
 
     const morphTargets = new Map<THREE.BufferGeometry, THREE.BufferGeometry>();
 
-    // Setup morphing for matching meshes
+    // Process each mesh in the Roman model to find corresponding meshes in Cyberpunk model
     modelComponent.romanModel.traverse((romanObj) => {
       if (!(romanObj instanceof THREE.Mesh)) return;
 
       // Find corresponding mesh in cyberpunk model by name
-      let cyberpunkObj: THREE.Object3D | null = null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let cyberpunkObj: any = null;
       modelComponent.cyberpunkModel?.traverse((obj) => {
         if (obj.name === romanObj.name && obj instanceof THREE.Mesh) {
           cyberpunkObj = obj;
         }
       });
 
-      if (cyberpunkObj && (cyberpunkObj as object) instanceof THREE.Mesh) {
-        this.setupMeshMorphing(romanObj, cyberpunkObj as THREE.Mesh);
-        morphTargets.set(romanObj.geometry, (cyberpunkObj as THREE.Mesh).geometry);
+      if (cyberpunkObj && cyberpunkObj instanceof THREE.Mesh) {
+        // Create morph targets for this pair of meshes
+        const romanGeom = romanObj.geometry;
+        const cyberpunkGeom = cyberpunkObj.geometry;
+
+        // Ensure both geometries have position attributes
+        if (
+          romanGeom.attributes.position &&
+          cyberpunkGeom.attributes.position &&
+          romanGeom.attributes.position.count === cyberpunkGeom.attributes.position.count
+        ) {
+          // Store for later morphing
+          morphTargets.set(romanGeom, cyberpunkGeom);
+
+          // Prepare morphing attributes
+          if (!romanGeom.morphAttributes.position) {
+            romanGeom.morphAttributes.position = [];
+          }
+
+          // Create a morph target from the cyberpunk geometry
+          const positionAttribute = cyberpunkGeom.attributes.position;
+          const morphPositions = new Float32Array(positionAttribute.array.length);
+
+          // Calculate the position differences for morphing
+          for (let i = 0; i < positionAttribute.count; i++) {
+            const romanPos = new THREE.Vector3();
+            const cyberpunkPos = new THREE.Vector3();
+
+            // Get positions from both geometries
+            romanPos.fromBufferAttribute(romanGeom.attributes.position, i);
+            cyberpunkPos.fromBufferAttribute(positionAttribute, i);
+
+            // Calculate the delta (target - base)
+            const idx = i * 3;
+            morphPositions[idx] = cyberpunkPos.x - romanPos.x;
+            morphPositions[idx + 1] = cyberpunkPos.y - romanPos.y;
+            morphPositions[idx + 2] = cyberpunkPos.z - romanPos.z;
+          }
+
+          // Add the morph target
+          romanGeom.morphAttributes.position.push(new THREE.BufferAttribute(morphPositions, 3));
+
+          // Enable morphing on the mesh
+          if (romanObj.morphTargetInfluences) {
+            romanObj.morphTargetInfluences[0] = 0; // Start at 0 (Roman)
+          }
+
+          // Configure material for morphing if it's a standard material
+          if (romanObj.material instanceof THREE.Material) {
+            const material = romanObj.material as MorphableMaterial;
+            if ('morphTargets' in material) {
+              material.morphTargets = true;
+            }
+          }
+        } else {
+          console.warn(
+            `Mesh "${romanObj.name}" has different vertex counts in Roman and Cyberpunk models. ` +
+              `Roman: ${romanGeom.attributes.position.count}, Cyberpunk: ${cyberpunkGeom.attributes.position.count}. ` +
+              `This mesh will not be morphed.`
+          );
+        }
       }
     });
 
     // Store morph targets for later use
     modelComponent.morphTargets = morphTargets;
-  }
-
-  /**
-   * Setup morphing between two meshes
-   * @param baseMesh Base mesh (Roman)
-   * @param targetMesh Target mesh (Cyberpunk)
-   */
-  private setupMeshMorphing(baseMesh: THREE.Mesh, targetMesh: THREE.Mesh): void {
-    const baseGeom = baseMesh.geometry;
-    const targetGeom = targetMesh.geometry;
-
-    // Only process geometries with the same vertex count
-    if (baseGeom.attributes.position.count !== targetGeom.attributes.position.count) {
-      return;
-    }
-
-    // Initialize morph attributes if needed
-    if (!baseGeom.morphAttributes.position) {
-      baseGeom.morphAttributes.position = [];
-    }
-
-    // Create morph target
-    const positionAttribute = targetGeom.attributes.position;
-    const morphPositions = new Float32Array(positionAttribute.array.length);
-
-    // Calculate position differences for morphing
-    for (let i = 0; i < positionAttribute.count; i++) {
-      const basePos = new THREE.Vector3();
-      const targetPos = new THREE.Vector3();
-
-      // Get vertex positions
-      basePos.fromBufferAttribute(baseGeom.attributes.position, i);
-      targetPos.fromBufferAttribute(positionAttribute, i);
-
-      // Calculate deltas
-      const idx = i * 3;
-      morphPositions[idx] = targetPos.x - basePos.x;
-      morphPositions[idx + 1] = targetPos.y - basePos.y;
-      morphPositions[idx + 2] = targetPos.z - basePos.z;
-    }
-
-    // Add morph target to base geometry
-    baseGeom.morphAttributes.position.push(new THREE.BufferAttribute(morphPositions, 3));
-
-    // Enable morphing on the mesh
-    if (!baseMesh.morphTargetInfluences) {
-      baseMesh.morphTargetInfluences = [0];
-    } else {
-      baseMesh.morphTargetInfluences[0] = 0;
-    }
-
-    // Enable morphing in the material
-    if (baseMesh.material instanceof THREE.Material) {
-      // Cast to custom interface to enable morphTargets
-      (baseMesh.material as MorphableMaterial).morphTargets = true;
-    }
   }
 }

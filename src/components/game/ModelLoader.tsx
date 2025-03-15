@@ -11,6 +11,7 @@ import {
   ScaleComponent,
   ModelComponent,
 } from '../../ecs/examples/components';
+import { Era, useModelLoader } from '../../hooks/useModelLoader';
 
 interface ModelLoaderProps {
   url: string;
@@ -136,3 +137,116 @@ export const ModelLoader: React.FC<ModelLoaderProps> = ({
 
 // Preload the model to improve performance
 useGLTF.preload('/path/to/your/model.glb');
+
+// Props for standard GLB model without transitions
+interface StandardModelLoaderProps {
+  url: string;
+  position?: [number, number, number];
+  rotation?: [number, number, number];
+  scale?: [number, number, number];
+}
+
+// Props for era transition model loader
+interface EraModelLoaderProps {
+  romanModelUrl: string;
+  cyberpunkModelUrl: string;
+  position?: [number, number, number];
+  rotation?: [number, number, number];
+  scale?: [number, number, number];
+  initialEra?: Era;
+  transitionSpeed?: number;
+  onTransitionComplete?: (era: Era) => void;
+}
+
+/**
+ * Component that loads and renders a standard GLB/GLTF model
+ */
+export const StandardModelLoader: React.FC<StandardModelLoaderProps> = ({
+  url,
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+  scale = [1, 1, 1],
+}) => {
+  // Load the GLB model
+  const { scene } = useGLTF(url);
+  const modelRef = React.useRef<THREE.Group>(null);
+
+  // Clone and add the model to the scene
+  React.useEffect(() => {
+    if (!modelRef.current) return;
+
+    // Clone the model to avoid modifying the cached version
+    const modelClone = scene.clone();
+    modelRef.current.add(modelClone);
+
+    // Apply transformations
+    modelRef.current.position.set(...position);
+    modelRef.current.rotation.set(...rotation);
+    modelRef.current.scale.set(...scale);
+
+    // Clean up when component unmounts
+    return () => {
+      if (modelRef.current) {
+        while (modelRef.current.children.length) {
+          const child = modelRef.current.children[0];
+          modelRef.current.remove(child);
+        }
+      }
+    };
+  }, [scene, position, rotation, scale]);
+
+  return <group ref={modelRef} />;
+};
+
+/**
+ * Component that loads and renders models with era transition capabilities
+ * This component uses the useModelLoader hook to handle transitions between
+ * Roman and Cyberpunk era models.
+ */
+export const EraModelLoader: React.FC<
+  EraModelLoaderProps & {
+    // Additional props to expose hook functionality if needed
+    onRef?: (ref: { transitionToEra: (era: Era) => void; currentEra: Era }) => void;
+  }
+> = ({
+  romanModelUrl,
+  cyberpunkModelUrl,
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+  scale = [1, 1, 1],
+  initialEra = Era.Roman,
+  transitionSpeed = 2.0,
+  onTransitionComplete,
+  onRef,
+}) => {
+  // Use our custom hook to handle model loading and transitions
+  const { modelRef, currentEra, transitionToEra } = useModelLoader({
+    romanModelUrl,
+    cyberpunkModelUrl,
+    initialEra,
+    transitionSpeed,
+    onTransitionComplete,
+  });
+
+  // Expose hook functions to parent component via callback
+  React.useEffect(() => {
+    if (onRef) {
+      onRef({ transitionToEra, currentEra });
+    }
+  }, [onRef, transitionToEra, currentEra]);
+
+  // Apply transformations
+  React.useEffect(() => {
+    if (!modelRef.current) return;
+
+    modelRef.current.position.set(...position);
+    modelRef.current.rotation.set(...rotation);
+    modelRef.current.scale.set(...scale);
+  }, [position, rotation, scale]);
+
+  return <group ref={modelRef} />;
+};
+
+// Preload common models to improve performance
+useGLTF.preload('/assets/models/roman/default_building.glb');
+useGLTF.preload('/assets/models/cyberpunk/default_building.glb');
