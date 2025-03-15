@@ -3,6 +3,7 @@ import { EntityManager } from '../EntityManager';
 import * as THREE from 'three';
 import { EraTransitionComponent, Era } from '../components/EraTransitionComponent';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { TransitionMaterialManager } from '../../shaders/TransitionShader';
 
 // Define interface for materials that support morphing
 interface MorphableMaterial extends THREE.Material {
@@ -22,6 +23,8 @@ export interface GlbModelComponent {
   cyberpunkModelUrl?: string;
   isLoaded: boolean;
   transitionProgress?: number;
+  useShaderEffect?: boolean;
+  shaderManager?: TransitionMaterialManager;
 }
 
 /**
@@ -63,18 +66,30 @@ export class ModelTransitionSystem extends System {
       // Update transition progress if transitioning
       if (eraTransition.isTransitioning) {
         // Update the transition progress
-        const isComplete = eraTransition.updateTransition(deltaTime);
+        const direction = eraTransition.targetEra === Era.Roman ? -1 : 1;
+        let newProgress =
+          eraTransition.transitionProgress +
+          direction * (deltaTime * eraTransition.transitionSpeed);
+
+        // Clamp progress between 0 and 1
+        newProgress = Math.max(0, Math.min(1, newProgress));
+        eraTransition.transitionProgress = newProgress;
 
         // Apply the transition to model morphing
-        this.applyTransitionToModel(modelComponent, eraTransition.transitionProgress);
+        this.applyTransitionToModel(modelComponent, newProgress);
 
         // Store progress for external access
-        modelComponent.transitionProgress = eraTransition.transitionProgress;
+        modelComponent.transitionProgress = newProgress;
+
+        // Check if transition is complete
+        const isComplete =
+          (newProgress <= 0 && eraTransition.targetEra === Era.Roman) ||
+          (newProgress >= 1 && eraTransition.targetEra === Era.Cyberpunk);
 
         // Handle transition completion
         if (isComplete) {
-          // We're not doing anything special on transition completion anymore
-          // as we're using the same approach as the useModelLoader hook
+          eraTransition.isTransitioning = false;
+          eraTransition.currentEra = eraTransition.targetEra;
         }
       }
     }
@@ -100,6 +115,11 @@ export class ModelTransitionSystem extends System {
         obj.morphTargetInfluences[0] = progress;
       }
     });
+
+    // Apply shader transition effects if enabled
+    if (modelComponent.useShaderEffect && modelComponent.shaderManager) {
+      modelComponent.shaderManager.updateTransitionProgress(progress);
+    }
   }
 
   /**
@@ -107,8 +127,14 @@ export class ModelTransitionSystem extends System {
    * @param entityId Entity ID to load models for
    * @param romanUrl URL to Roman era model
    * @param cyberpunkUrl URL to Cyberpunk era model
+   * @param options Optional options for loading
    */
-  loadModelsForEntity(entityId: string, romanUrl: string, cyberpunkUrl: string): void {
+  loadModelsForEntity(
+    entityId: string,
+    romanUrl: string,
+    cyberpunkUrl: string,
+    options?: { useShaderEffect?: boolean }
+  ): void {
     // Entity must have the needed components
     if (
       !this.entityManager.hasComponent(entityId, 'eraTransition') ||
@@ -122,10 +148,11 @@ export class ModelTransitionSystem extends System {
 
     if (!modelComponent) return;
 
-    // Update the component with URLs
+    // Update the component with URLs and options
     modelComponent.romanModelUrl = romanUrl;
     modelComponent.cyberpunkModelUrl = cyberpunkUrl;
     modelComponent.isLoaded = false;
+    modelComponent.useShaderEffect = options?.useShaderEffect || false;
 
     // Get the current era from the transition component
     const eraTransition = this.entityManager.getComponent<EraTransitionComponent>(
@@ -153,10 +180,17 @@ export class ModelTransitionSystem extends System {
         // Set up morph targets
         this.setupModelMorphing(modelComponent);
 
+        // Initialize shader effects if enabled
+        if (modelComponent.useShaderEffect) {
+          console.log('Initializing shader effects for entity');
+          modelComponent.shaderManager = new TransitionMaterialManager();
+          modelComponent.shaderManager.applyToModel(romanModel);
+        }
+
         // Mark as loaded
         modelComponent.isLoaded = true;
 
-        // Set initial morphing if needed
+        // Set initial morphing and shader state if needed
         if (initialEra === Era.Cyberpunk && modelComponent.romanModel) {
           this.applyTransitionToModel(modelComponent, 1);
         }

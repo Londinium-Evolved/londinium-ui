@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { disposeObject } from '../utils/three/disposalUtils';
+import { TransitionMaterialManager } from '../shaders/TransitionShader';
 
 /**
  * Enum representing the different eras in the game
@@ -52,6 +53,7 @@ export interface UseModelLoaderParams {
   initialEra?: Era;
   transitionSpeed?: number; // Transition speed in seconds
   onTransitionComplete?: (era: Era) => void;
+  useShaderEffect?: boolean; // Whether to use custom shader for visual effects
 }
 
 /**
@@ -84,6 +86,7 @@ export function useModelLoader({
   initialEra = Era.Roman,
   transitionSpeed = 2.0,
   onTransitionComplete,
+  useShaderEffect = false,
 }: UseModelLoaderParams): UseModelLoaderResult {
   // Model and transition state
   const modelRef = useRef<THREE.Group>(null);
@@ -95,6 +98,9 @@ export function useModelLoader({
     transitionSpeed,
     isTransitioning: false,
   });
+
+  // Shader effects manager
+  const shaderManagerRef = useRef<TransitionMaterialManager | null>(null);
 
   // Load models using drei's useGLTF
   const { scene: romanScene } = useGLTF(romanModelUrl);
@@ -202,13 +208,29 @@ export function useModelLoader({
 
     setModelState(models);
 
+    // Initialize shader effects if enabled
+    if (useShaderEffect) {
+      console.log('Initializing transition shader effects');
+      shaderManagerRef.current = new TransitionMaterialManager();
+      shaderManagerRef.current.applyToModel(models.romanModel);
+
+      // Set initial transition state for shader
+      if (initialEra === Era.Cyberpunk && shaderManagerRef.current) {
+        shaderManagerRef.current.updateTransitionProgress(1.0);
+      }
+    }
+
     // Clean up
     return () => {
       if (modelRef.current) {
         disposeObject(modelRef.current);
       }
+      // Dispose shader resources
+      if (shaderManagerRef.current) {
+        shaderManagerRef.current.dispose();
+      }
     };
-  }, [prepareModels]);
+  }, [prepareModels, useShaderEffect, initialEra]);
 
   /**
    * Transition to a specific era
@@ -258,6 +280,11 @@ export function useModelLoader({
         isTransitioning: !isComplete,
         currentEra: isComplete ? prev.targetEra : prev.currentEra,
       }));
+
+      // Update shader effect if enabled
+      if (useShaderEffect && shaderManagerRef.current) {
+        shaderManagerRef.current.updateTransitionProgress(newProgress);
+      }
 
       // Notify when transition completes
       if (isComplete && onTransitionComplete) {

@@ -156,6 +156,7 @@ interface EraModelLoaderProps {
   initialEra?: Era;
   transitionSpeed?: number;
   onTransitionComplete?: (era: Era) => void;
+  useShaderEffect?: boolean; // Whether to use custom shader for visual effects
 }
 
 /**
@@ -218,6 +219,7 @@ export const EraModelLoader: React.FC<
   transitionSpeed = 2.0,
   onTransitionComplete,
   onRef,
+  useShaderEffect = false,
 }) => {
   // Use our custom hook to handle model loading and transitions
   const { modelRef, currentEra, transitionToEra } = useModelLoader({
@@ -226,6 +228,7 @@ export const EraModelLoader: React.FC<
     initialEra,
     transitionSpeed,
     onTransitionComplete,
+    useShaderEffect,
   });
 
   // Expose hook functions to parent component via callback
