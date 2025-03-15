@@ -75,7 +75,7 @@ export interface BuildingConfigurationsFile {
 export class ConfigurationLoader {
   private static instance: ConfigurationLoader;
   private configs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }> =
-    {} as any;
+    {} as Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
   private defaultConfigs: Record<
     BuildingType,
     { roman: BuildingConfig; cyberpunk: BuildingConfig }
@@ -159,7 +159,10 @@ export class ConfigurationLoader {
         roman: SerializableBuildingConfig;
         cyberpunk: SerializableBuildingConfig;
       }
-    > = {} as any;
+    > = {} as Record<
+      BuildingType,
+      { roman: SerializableBuildingConfig; cyberpunk: SerializableBuildingConfig }
+    >;
 
     for (const [type, eras] of Object.entries(this.configs)) {
       serializableConfigs[type as BuildingType] = {
@@ -243,7 +246,7 @@ export class ConfigurationLoader {
     >
   ): Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }> {
     const result: Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }> =
-      {} as any;
+      {} as Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
 
     for (const [type, eras] of Object.entries(configs)) {
       result[type as BuildingType] = {
@@ -295,7 +298,7 @@ export class ConfigurationLoader {
         const material = era.material;
         // If the material isn't a proper THREE.js material yet, convert it
         if (!(material instanceof THREE.Material) && typeof material === 'object') {
-          const matConfig = material as any;
+          const matConfig = material as THREE.MeshStandardMaterial;
           era.material = new THREE.MeshStandardMaterial({
             color: matConfig.color,
             roughness: matConfig.roughness,
