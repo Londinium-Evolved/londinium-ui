@@ -122,7 +122,7 @@ Here's a workflow example using Blender:
 
 1. Create the Roman model first
 2. Duplicate the model for Cyberpunk version
-3. Modify the duplicated model while preserving vertex count
+3. Modify the duplicated model while preserving vertex count (ensure that modifications do not add or remove vertices; avoid operations like extruding, subdividing, or deleting vertices)
 4. Export both models as separate GLB files
 5. Test with the EraTransitionModelViewer
 
