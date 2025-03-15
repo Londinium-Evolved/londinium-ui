@@ -261,5 +261,5 @@ export const ModelTransitionLoader = forwardRef<
 );
 
 // Preload all models for better performance
-useGLTF.preload('/assets/models/roman/default_building.glb');
+useGLTF.preload('/assets/models/roman/mvp_Insulae_v1.glb');
 useGLTF.preload('/assets/models/cyberpunk/default_building.glb');

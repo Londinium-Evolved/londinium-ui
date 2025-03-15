@@ -136,7 +136,7 @@ export const ModelLoader: React.FC<ModelLoaderProps> = ({
 };
 
 // Preload the model to improve performance
-useGLTF.preload('./src/assets/3dassets/models/roman/mvp_Insulae_v1.glb');
+useGLTF.preload('./src/assets/models/roman/mvp_Insulae_v1.glb');
 
 // Props for standard GLB model without transitions
 interface StandardModelLoaderProps {
