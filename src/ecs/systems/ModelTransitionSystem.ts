@@ -111,16 +111,14 @@ export class ModelTransitionSystem extends System {
         this.scene.add(modelComponent.cyberpunkModel);
         modelComponent.activeModel = modelComponent.cyberpunkModel;
       }
-    } else if (era === Era.Roman && modelComponent.romanModel) {
-      // Switch back to roman model
-      if (modelComponent.activeModel !== modelComponent.romanModel) {
-        if (modelComponent.activeModel) {
-          this.scene.remove(modelComponent.activeModel);
-        }
-        this.scene.add(modelComponent.romanModel);
-        modelComponent.activeModel = modelComponent.romanModel;
-      }
-    }
+    } else if (era === Era.Roman && modelComponent.romanModel && modelComponent.activeModel !== modelComponent.romanModel) {
+                 if (modelComponent.activeModel) {
+                   this.scene.remove(modelComponent.activeModel);
+                 }
+                 this.scene.add(modelComponent.romanModel);
+                 modelComponent.activeModel = modelComponent.romanModel;
+           }
+
 
     // Additional post-transition cleanup or effects
   }
