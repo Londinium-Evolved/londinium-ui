@@ -54,8 +54,11 @@ const AppContent = observer(() => {
             <Link to='/demo' className='text-blue-300 underline block mb-2'>
               View Demo
             </Link>
-            <Link to='/building-generator' className='text-blue-300 underline block'>
+            <Link to='/building-generator' className='text-blue-300 underline block mb-2'>
               Building Generator
+            </Link>
+            <Link to='/shader-demo' className='text-blue-300 underline block'>
+              Shader Transition Demo
             </Link>
           </div>
 
