@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BuildingMeshData } from './buildingGenerator';
+import { materialFactory } from '../three/materialFactory';
 
 /**
  * BuildingLOD provides utilities for creating Level of Detail (LOD) models
@@ -42,19 +43,40 @@ export function createBuildingLOD(
     const lodGeometry = lodGeometries[i];
     const detailFactor = i / (lodGeometries.length - 1); // 0 to 1
 
-    // Simple material for lower detail levels
-    const lodMaterial = material.clone();
+    // Get material parameters from the original material for LOD creation
+    let lodMaterial;
+    if (material instanceof THREE.MeshStandardMaterial) {
+      // Create material properties object
+      const materialProps: Record<
+        string,
+        THREE.ColorRepresentation | number | THREE.Texture | string | undefined
+      > = {
+        color: material.color,
+        roughness: Math.min(1, material.roughness + detailFactor * 0.3),
+        metalness: Math.max(0, material.metalness - detailFactor * 0.3),
+        emissive: material.emissive,
+        emissiveIntensity: material.emissiveIntensity,
+        cacheKey: `lod_${type}_${i}_${lodGeometries.length}`,
+      };
 
-    // For lower LODs, simplify the material too
-    if (lodMaterial instanceof THREE.MeshStandardMaterial) {
-      // Reduce material complexity for distant objects
-      lodMaterial.roughness = Math.min(1, lodMaterial.roughness + detailFactor * 0.3);
-      lodMaterial.metalness = Math.max(0, lodMaterial.metalness - detailFactor * 0.3);
+      // Only add normalMap if needed (for closer LOD levels)
+      if (material.normalMap && detailFactor < 0.5) {
+        materialProps.normalMap = material.normalMap;
 
-      // Reduce or eliminate normal maps for distant objects
-      if (lodMaterial.normalMap) {
-        lodMaterial.normalScale.multiplyScalar(1 - detailFactor);
+        // Handle normal scale separately by adjusting the original material
+        // since Vector2 can't be directly passed to our factory
+        const normalScale = material.normalScale.clone().multiplyScalar(1 - detailFactor);
+
+        // Use the factory to create a new material with adjusted properties
+        lodMaterial = materialFactory.createCustomMaterial(materialProps);
+        lodMaterial.normalScale.copy(normalScale);
+      } else {
+        // Use the factory to create a new material without normal maps
+        lodMaterial = materialFactory.createCustomMaterial(materialProps);
       }
+    } else {
+      // Fallback to simple cloning if not a MeshStandardMaterial
+      lodMaterial = material.clone();
     }
 
     // Create the mesh for this LOD level
