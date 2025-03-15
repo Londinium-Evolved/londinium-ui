@@ -238,6 +238,9 @@ export const ModelTransitionLoader = forwardRef<
           (newProgress <= 0 && transitionState.targetEra === Era.Roman) ||
           (newProgress >= 1 && transitionState.targetEra === Era.Cyberpunk);
 
+        // Capture a stable reference to targetEra before updating state
+        const stableTargetEra = transitionState.targetEra;
+
         // Update transition state
         setTransitionState((prev) => ({
           ...prev,
@@ -246,9 +249,9 @@ export const ModelTransitionLoader = forwardRef<
           currentEra: isComplete ? prev.targetEra : prev.currentEra,
         }));
 
-        // Notify when transition completes
+        // Notify when transition completes using the captured stable value
         if (isComplete && onTransitionComplete) {
-          onTransitionComplete(transitionState.targetEra);
+          onTransitionComplete(stableTargetEra);
         }
       }
     });
