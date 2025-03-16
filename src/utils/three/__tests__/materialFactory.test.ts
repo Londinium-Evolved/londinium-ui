@@ -249,4 +249,125 @@ describe('MaterialFactory', () => {
       expect(retrievedMaterial).toBe(clonedMaterial);
     });
   });
+
+  describe('Material updates', () => {
+    it('should update an existing material in the cache', () => {
+      // Create a material and place it in the cache
+      const originalMaterial = materialFactory.createRomanMaterial({
+        color: 0xff0000,
+        roughness: 0.7,
+        cacheKey: 'update-test',
+      });
+
+      // Verify initial properties
+      expect(originalMaterial.roughness).toBeCloseTo(0.7);
+
+      // Update the material
+      const updatedMaterial = materialFactory.updateCachedMaterial('update-test', {
+        roughness: 0.3,
+        metalness: 0.8,
+      });
+
+      // Verify the material was updated
+      expect(updatedMaterial).not.toBeNull();
+      expect(updatedMaterial!.roughness).toBeCloseTo(0.3);
+      expect(updatedMaterial!.metalness).toBeCloseTo(0.8);
+
+      // Verify it's the same instance (not a new material)
+      expect(updatedMaterial).toBe(originalMaterial);
+    });
+
+    it('should handle color properties correctly during update', () => {
+      // Create a material with a red color
+      const originalMaterial = materialFactory.createRomanMaterial({
+        color: 0xff0000,
+        cacheKey: 'color-update-test',
+      });
+
+      // Update with a new color
+      materialFactory.updateCachedMaterial('color-update-test', {
+        color: 0x00ff00, // green
+      });
+
+      // The color object should be the same instance but with new values
+      expect(originalMaterial.color.getHexString()).toBe('00ff00');
+    });
+
+    it('should return null when trying to update a non-existent material', () => {
+      const result = materialFactory.updateCachedMaterial('non-existent-key', {
+        roughness: 0.5,
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should retrieve a cached material by key', () => {
+      // Create a material with a specific cache key
+      const material = materialFactory.createRomanMaterial({
+        cacheKey: 'retrievable-material',
+      });
+
+      // Get it from the cache
+      const retrievedMaterial = materialFactory.getCachedMaterial('retrievable-material');
+
+      // Should be the same instance
+      expect(retrievedMaterial).toBe(material);
+
+      // Non-existent materials should return null
+      expect(materialFactory.getCachedMaterial('non-existent')).toBeNull();
+    });
+  });
+
+  describe('Complex cache key generation', () => {
+    it('should generate different keys for materials with different textures', () => {
+      const texture1 = new THREE.Texture();
+      const texture2 = new THREE.Texture();
+
+      const material1 = materialFactory.createCustomMaterial({
+        color: 0xffffff,
+        roughnessMap: texture1,
+      });
+
+      const material2 = materialFactory.createCustomMaterial({
+        color: 0xffffff,
+        roughnessMap: texture2,
+      });
+
+      // Should be different instances due to different texture UUIDs
+      expect(material1).not.toBe(material2);
+    });
+
+    it('should handle boolean properties in cache keys', () => {
+      // Cast the entire object to the correct expected type
+      const material1 = materialFactory.createCustomMaterial({
+        wireframe: true,
+        transparent: false,
+      } as unknown as Record<string, THREE.ColorRepresentation | number | THREE.Texture | string | undefined>);
+
+      const material2 = materialFactory.createCustomMaterial({
+        wireframe: true,
+        transparent: true,
+      } as unknown as Record<string, THREE.ColorRepresentation | number | THREE.Texture | string | undefined>);
+
+      // Should be different instances due to different boolean values
+      expect(material1).not.toBe(material2);
+    });
+
+    it('should handle custom non-standard properties', () => {
+      const material1 = materialFactory.createCustomMaterial({
+        color: 0xffffff,
+        customProperty1: 'value1',
+        customProperty2: 42,
+      });
+
+      const material2 = materialFactory.createCustomMaterial({
+        color: 0xffffff,
+        customProperty1: 'value1',
+        customProperty2: 43,
+      });
+
+      // Should be different instances due to different custom property values
+      expect(material1).not.toBe(material2);
+    });
+  });
 });

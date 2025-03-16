@@ -26,6 +26,22 @@ function createLODMaterial(
   totalLevels: number
 ): THREE.Material {
   if (material instanceof THREE.MeshStandardMaterial) {
+    // Create a cache key for this material
+    const cacheKey = `lod_${type}_${lodLevel}_${totalLevels}`;
+
+    // Check if material already exists in cache
+    const cachedMaterial = materialFactory.getCachedMaterial(cacheKey);
+    if (cachedMaterial) {
+      // If the material exists in cache, just update the normal scale if needed
+      if (material.normalMap && detailFactor < 0.5) {
+        const normalScale = material.normalScale.clone().multiplyScalar(1 - detailFactor);
+        materialFactory.updateCachedMaterial(cacheKey, {
+          normalScale: normalScale,
+        });
+      }
+      return cachedMaterial;
+    }
+
     // Create material properties object
     const materialProps: Record<
       string,
@@ -36,28 +52,25 @@ function createLODMaterial(
       metalness: Math.max(0, material.metalness - detailFactor * 0.3),
       emissive: material.emissive,
       emissiveIntensity: material.emissiveIntensity,
-      cacheKey: `lod_${type}_${lodLevel}_${totalLevels}`,
+      cacheKey: cacheKey,
     };
-
-    // Create the material
-    let lodMaterial: THREE.MeshStandardMaterial;
 
     // Only add normalMap if needed (for closer LOD levels)
     if (material.normalMap && detailFactor < 0.5) {
       materialProps.normalMap = material.normalMap;
 
       // Create the material with normal map
-      lodMaterial = materialFactory.createCustomMaterial(materialProps);
+      const lodMaterial = materialFactory.createCustomMaterial(materialProps);
 
       // Handle normal scale separately (Vector2 can't be directly passed to factory)
       const normalScale = material.normalScale.clone().multiplyScalar(1 - detailFactor);
       lodMaterial.normalScale.copy(normalScale);
+
+      return lodMaterial;
     } else {
       // Create the material without normal map
-      lodMaterial = materialFactory.createCustomMaterial(materialProps);
+      return materialFactory.createCustomMaterial(materialProps);
     }
-
-    return lodMaterial;
   }
 
   // Fallback for non-standard material types

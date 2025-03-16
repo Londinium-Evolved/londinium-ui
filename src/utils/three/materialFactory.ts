@@ -1,9 +1,37 @@
 import * as THREE from 'three';
 
 /**
- * Factory class for creating and managing THREE.MeshStandardMaterial instances.
- * Provides a centralized location for material creation to ensure consistency
- * and easier maintenance across the application.
+ * MaterialFactory - Enhanced Singleton Factory for THREE.js Materials
+ *
+ * This implementation follows the Singleton Factory pattern for creating and managing THREE.MeshStandardMaterial instances.
+ * It provides centralized material creation to ensure consistency, optimize memory usage, and simplify material management.
+ *
+ * Key Features:
+ * - Singleton pattern ensures a single source of truth for material creation
+ * - Material caching with smart key generation prevents duplicate materials
+ * - Era-specific material creation methods (Roman, Cyberpunk) with appropriate defaults
+ * - Support for building-specific materials with type and era parameters
+ * - Memory management through material disposal methods
+ * - Material updates without creating new instances (updateCachedMaterial)
+ * - Enhanced cache key generation that handles complex material properties
+ *
+ * Cache Key Generation:
+ * - Automatically generates optimized keys based on material properties
+ * - Handles basic properties (color, roughness, metalness)
+ * - Supports texture references via UUID
+ * - Includes vector properties where applicable
+ * - Handles custom/non-standard properties
+ *
+ * Performance Benefits:
+ * - Reduces memory usage by eliminating duplicate materials
+ * - Allows efficient updates to materials without creating new instances
+ * - Centralized creation ensures consistent material properties
+ *
+ * Usage Examples:
+ * - Create a Roman era material: materialFactory.createRomanMaterial({color: 0x8b7355})
+ * - Create a Cyberpunk material: materialFactory.createCyberpunkMaterial({emissive: 0x00ffff})
+ * - Create a building material: materialFactory.createBuildingMaterial({buildingType: 'domus', era: 'roman'})
+ * - Update a cached material: materialFactory.updateCachedMaterial('cacheKey', {roughness: 0.5})
  */
 export class MaterialFactory {
   private static instance: MaterialFactory;
@@ -229,13 +257,29 @@ export class MaterialFactory {
       ei?: number;
       map?: string;
       nm?: string;
+      // Additional properties for more complex materials
+      ao?: string; // Ambient occlusion map
+      bm?: string; // Bump map
+      dm?: string; // Displacement map
+      em?: string; // Emissive map
+      env?: string; // Environment map
+      rm?: string; // Roughness map
+      mm?: string; // Metalness map
+      alphaMap?: string; // Alpha map
+      wireframe?: boolean; // Wireframe rendering
+      flatShading?: boolean; // Flat shading
+      transparent?: boolean; // Transparency
+      opacity?: number; // Opacity level
+      side?: number; // Material side (FrontSide, BackSide, DoubleSide)
+      // Custom properties (will be stringified)
+      custom?: string;
     }
 
     // Create a simplified object for key generation
     const keyObj: KeyObject = {};
 
     // Handle color
-    const {color} = config;
+    const { color } = config;
     if (color !== undefined) {
       if (color instanceof THREE.Color) {
         keyObj.c = color.getHexString();
@@ -245,18 +289,18 @@ export class MaterialFactory {
     }
 
     // Handle numeric properties
-    const {roughness} = config;
+    const { roughness } = config;
     if (typeof roughness === 'number') {
       keyObj.r = roughness;
     }
 
-    const {metalness} = config;
+    const { metalness } = config;
     if (typeof metalness === 'number') {
       keyObj.m = metalness;
     }
 
     // Handle emissive color
-    const {emissive} = config;
+    const { emissive } = config;
     if (emissive !== undefined) {
       if (emissive instanceof THREE.Color) {
         keyObj.e = emissive.getHexString();
@@ -266,24 +310,209 @@ export class MaterialFactory {
     }
 
     // Handle emissive intensity
-    const {emissiveIntensity} = config;
+    const { emissiveIntensity } = config;
     if (typeof emissiveIntensity === 'number') {
       keyObj.ei = emissiveIntensity;
     }
 
     // Handle textures
-    const {map} = config;
+    const { map } = config;
     if (map instanceof THREE.Texture) {
       keyObj.map = map.uuid;
     }
 
-    const {normalMap} = config;
+    const { normalMap } = config;
     if (normalMap instanceof THREE.Texture) {
       keyObj.nm = normalMap.uuid;
     }
 
+    // Additional texture maps
+    const { aoMap } = config;
+    if (aoMap instanceof THREE.Texture) {
+      keyObj.ao = aoMap.uuid;
+    }
+
+    const { bumpMap } = config;
+    if (bumpMap instanceof THREE.Texture) {
+      keyObj.bm = bumpMap.uuid;
+    }
+
+    const { displacementMap } = config;
+    if (displacementMap instanceof THREE.Texture) {
+      keyObj.dm = displacementMap.uuid;
+    }
+
+    const { emissiveMap } = config;
+    if (emissiveMap instanceof THREE.Texture) {
+      keyObj.em = emissiveMap.uuid;
+    }
+
+    const { envMap } = config;
+    if (envMap instanceof THREE.Texture) {
+      keyObj.env = envMap.uuid;
+    }
+
+    const { roughnessMap } = config;
+    if (roughnessMap instanceof THREE.Texture) {
+      keyObj.rm = roughnessMap.uuid;
+    }
+
+    const { metalnessMap } = config;
+    if (metalnessMap instanceof THREE.Texture) {
+      keyObj.mm = metalnessMap.uuid;
+    }
+
+    const { alphaMap } = config;
+    if (alphaMap instanceof THREE.Texture) {
+      keyObj.alphaMap = alphaMap.uuid;
+    }
+
+    // Handle boolean properties
+    const { wireframe } = config;
+    if (typeof wireframe === 'boolean') {
+      keyObj.wireframe = wireframe;
+    }
+
+    const { flatShading } = config;
+    if (typeof flatShading === 'boolean') {
+      keyObj.flatShading = flatShading;
+    }
+
+    const { transparent } = config;
+    if (typeof transparent === 'boolean') {
+      keyObj.transparent = transparent;
+    }
+
+    // Handle additional numeric properties
+    const { opacity } = config;
+    if (typeof opacity === 'number') {
+      keyObj.opacity = opacity;
+    }
+
+    const { side } = config;
+    if (typeof side === 'number') {
+      keyObj.side = side;
+    }
+
+    // Handle custom properties that don't fit the standard pattern
+    const customProps: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(config)) {
+      // Skip properties we've already handled
+      if (
+        [
+          'color',
+          'roughness',
+          'metalness',
+          'emissive',
+          'emissiveIntensity',
+          'map',
+          'normalMap',
+          'aoMap',
+          'bumpMap',
+          'displacementMap',
+          'emissiveMap',
+          'envMap',
+          'roughnessMap',
+          'metalnessMap',
+          'alphaMap',
+          'wireframe',
+          'flatShading',
+          'transparent',
+          'opacity',
+          'side',
+          'cacheKey',
+        ].includes(key)
+      ) {
+        continue;
+      }
+
+      // Add non-standard properties to the custom object
+      customProps[key] = value;
+    }
+
+    // If we have custom properties, stringify them and add to key object
+    if (Object.keys(customProps).length > 0) {
+      try {
+        keyObj.custom = JSON.stringify(customProps);
+      } catch (e) {
+        console.warn('Could not stringify custom properties for cache key', e);
+        // Generate a random value to ensure uniqueness
+        keyObj.custom = `unstringifiable_${Math.random().toString(36).substring(2)}`;
+      }
+    }
+
     const keyString = JSON.stringify(keyObj);
     return `${prefix}_${keyString}`;
+  }
+
+  /**
+   * Updates an existing material in the cache with new properties
+   * This is useful for dynamically changing material properties without creating new instances
+   *
+   * @param cacheKey The cache key of the material to update
+   * @param properties New properties to apply to the material
+   * @returns The updated material, or null if not found in cache
+   */
+  public updateCachedMaterial(
+    cacheKey: string,
+    properties: Record<
+      string,
+      THREE.ColorRepresentation | number | THREE.Texture | boolean | THREE.Vector2 | undefined
+    >
+  ): THREE.MeshStandardMaterial | null {
+    // Check if material exists in cache
+    if (!this.materialCache.has(cacheKey)) {
+      console.warn(`Material with key ${cacheKey} not found in cache, cannot update.`);
+      return null;
+    }
+
+    // Get the cached material
+    const material = this.materialCache.get(cacheKey)!;
+
+    // Update each property
+    for (const [key, value] of Object.entries(properties)) {
+      // Handle special cases for color and vector properties
+      if (key === 'color' && value !== undefined) {
+        if (material.color) {
+          if (value instanceof THREE.Color) {
+            material.color.copy(value);
+          } else {
+            // Cast to ColorRepresentation to satisfy TypeScript
+            material.color.set(value as THREE.ColorRepresentation);
+          }
+        }
+      } else if (key === 'emissive' && value !== undefined) {
+        if (material.emissive) {
+          if (value instanceof THREE.Color) {
+            material.emissive.copy(value);
+          } else {
+            // Cast to ColorRepresentation to satisfy TypeScript
+            material.emissive.set(value as THREE.ColorRepresentation);
+          }
+        }
+      } else if (key === 'normalScale' && value instanceof THREE.Vector2) {
+        material.normalScale.copy(value);
+      } else if (key in material) {
+        // For standard properties, just assign the value
+        // Cast to unknown first to safely convert between types
+        (material as unknown as Record<string, unknown>)[key] = value;
+      }
+    }
+
+    // Mark material for update
+    material.needsUpdate = true;
+
+    return material;
+  }
+
+  /**
+   * Gets a material from the cache by key, if it exists
+   *
+   * @param cacheKey The cache key to look up
+   * @returns The cached material or null if not found
+   */
+  public getCachedMaterial(cacheKey: string): THREE.MeshStandardMaterial | null {
+    return this.materialCache.has(cacheKey) ? this.materialCache.get(cacheKey)! : null;
   }
 }
 
