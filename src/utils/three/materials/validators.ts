@@ -1,113 +1,110 @@
 import * as THREE from 'three';
+import { BaseMaterialConfig } from './types';
 
 /**
- * Validates a color value to ensure it's in an acceptable format
+ * Validates a color value
+ * 
  * @param color The color to validate
- * @param paramName The name of the parameter being validated (for error messages)
- * @throws Error if the color format is invalid
+ * @param propName The property name for error messages
  */
-export function validateColor(color: unknown, paramName: string): void {
-  // If undefined, allow it (defaults will be used)
-  if (color === undefined) {
-    return;
-  }
-
-  // String colors (must be valid CSS color names or hex format)
+export function validateColor(
+  color: THREE.ColorRepresentation | undefined,
+  propName: string
+): void {
+  if (color === undefined) return;
+  
+  // Check if it's a valid THREE.Color
+  if (color instanceof THREE.Color) return;
+  
+  // Check if it's a valid hex string
   if (typeof color === 'string') {
-    // Simple validation for hex colors (#RGB or #RRGGBB)
-    if (color.startsWith('#')) {
-      const validHexPattern = /^#([0-9A-F]{3}){1,2}$/i;
-      if (!validHexPattern.test(color)) {
-        throw new Error(`Invalid hex color format for ${paramName}: ${color}`);
-      }
+    // Validate hex format
+    if (color.startsWith('#') && (color.length === 4 || color.length === 7)) {
+      return;
     }
-    // Allow other string formats (CSS colors will be validated by THREE.Color)
-    return;
+    // Allow named colors (THREE.js will handle these)
+    if (!color.startsWith('#')) {
+      return;
+    }
   }
-
-  // Number colors (must be positive)
+  
+  // Check if it's a number (like 0xFF0000)
   if (typeof color === 'number') {
-    if (color < 0) {
-      throw new Error(`Invalid negative color value for ${paramName}: ${color}`);
+    return;
+  }
+  
+  // Check if it's an RGB object
+  if (typeof color === 'object' && 
+      'r' in color && typeof color.r === 'number' && 
+      'g' in color && typeof color.g === 'number' && 
+      'b' in color && typeof color.b === 'number') {
+    
+    // Validate RGB ranges (0-1)
+    if (color.r < 0 || color.r > 1 || 
+        color.g < 0 || color.g > 1 || 
+        color.b < 0 || color.b > 1) {
+      throw new Error(`${propName} RGB values must be between 0 and 1`);
     }
     return;
   }
-
-  // THREE.Color objects or objects with r,g,b properties
-  if (color && typeof color === 'object') {
-    if (color instanceof THREE.Color) {
-      return;
-    }
-
-    if (
-      'r' in color &&
-      typeof color.r === 'number' &&
-      'g' in color &&
-      typeof color.g === 'number' &&
-      'b' in color &&
-      typeof color.b === 'number'
-    ) {
-      // Validate r, g, b values (should be between 0 and 1)
-      const { r, g, b } = color as { r: number; g: number; b: number };
-      if (r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) {
-        throw new Error(
-          `Invalid RGB values for ${paramName}: r=${r}, g=${g}, b=${b} (must be between 0 and 1)`
-        );
-      }
-      return;
-    }
-  }
-
-  // If we get here, the color format is not recognized
-  throw new Error(`Unsupported color format for ${paramName}: ${String(color)}`);
+  
+  throw new Error(`Invalid ${propName} format`);
 }
 
 /**
- * Validates a numeric value to ensure it's within an acceptable range
+ * Validates a numeric value within a range
+ * 
  * @param value The value to validate
- * @param paramName The name of the parameter being validated (for error messages)
- * @param min Minimum allowed value (defaults to 0)
- * @param max Maximum allowed value (defaults to 1)
- * @throws Error if the value is outside the acceptable range
+ * @param propName The property name for error messages
+ * @param min Minimum valid value (default: 0)
+ * @param max Maximum valid value (default: 1)
  */
 export function validateNumericRange(
-  value: unknown,
-  paramName: string,
+  value: number | undefined,
+  propName: string,
   min: number = 0,
   max: number = 1
 ): void {
-  // If undefined, allow it (defaults will be used)
-  if (value === undefined) {
-    return;
+  if (value === undefined) return;
+  
+  if (typeof value !== 'number' || isNaN(value)) {
+    throw new Error(`${propName} must be a number`);
   }
-
-  if (typeof value !== 'number') {
-    throw new Error(`Invalid type for ${paramName}: expected number, got ${typeof value}`);
-  }
-
+  
   if (value < min || value > max) {
-    throw new Error(`Invalid value for ${paramName}: ${value} (must be between ${min} and ${max})`);
+    throw new Error(`${propName} must be between ${min} and ${max}`);
   }
 }
 
 /**
- * Validates a texture to ensure it's a valid THREE.Texture
+ * Validates a texture
+ * 
  * @param texture The texture to validate
- * @param paramName The name of the parameter being validated (for error messages)
- * @throws Error if the texture is invalid
+ * @param propName The property name for error messages
  */
-export function validateTexture(texture: unknown, paramName: string): void {
-  // If undefined, allow it (no texture will be used)
-  if (texture === undefined) {
-    return;
-  }
-
+export function validateTexture(
+  texture: THREE.Texture | undefined,
+  propName: string
+): void {
+  if (texture === undefined) return;
+  
   if (!(texture instanceof THREE.Texture)) {
-    throw new Error(`Invalid type for ${paramName}: expected THREE.Texture, got ${typeof texture}`);
+    throw new Error(`${propName} must be a valid THREE.Texture`);
   }
+}
 
-  // Check if texture has an image defined (might not be loaded yet)
-  if (!texture.image && texture.uuid === '') {
-    throw new Error(`Invalid texture for ${paramName}: texture has no image or UUID`);
-  }
+/**
+ * Validates the common material configuration properties
+ * This centralizes the validation logic for all material types
+ * 
+ * @param config The material configuration to validate
+ */
+export function validateMaterialConfig(config: BaseMaterialConfig): void {
+  validateColor(config.color, 'color');
+  validateColor(config.emissive, 'emissive');
+  validateNumericRange(config.roughness, 'roughness');
+  validateNumericRange(config.metalness, 'metalness');
+  validateNumericRange(config.emissiveIntensity, 'emissiveIntensity', 0, 10);
+  validateTexture(config.map, 'map');
+  validateTexture(config.normalMap, 'normalMap');
 }

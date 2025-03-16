@@ -5,9 +5,13 @@ import {
   CustomMaterialConfig,
   MaterialUpdateConfig,
 } from './materials/types';
-import { validateColor, validateNumericRange, validateTexture } from './materials/validators';
-import { updateMaterial } from './materials/materialUpdater';
-import { generateAutomaticCacheKey } from './materials/automaticCacheKeyGenerator';
+import {
+  RomanMaterialCreator,
+  CyberpunkMaterialCreator,
+  BuildingMaterialCreator,
+  CustomMaterialCreator,
+} from './materials/creators';
+import { MaterialUpdateSystem } from './materials/MaterialUpdateSystem';
 
 /**
  * Converts a color value to a hex string representation for consistent cache key generation
@@ -103,140 +107,32 @@ export class MaterialFactory {
     return MaterialFactory.instance;
   }
 
-  private generateCacheKey(era: string, config: BaseMaterialConfig | CustomMaterialConfig): string {
-    return generateAutomaticCacheKey(era, config);
-  }
-
   /**
    * Creates a standard material for the Roman era
    */
   public createRomanMaterial(config: BaseMaterialConfig): THREE.MeshStandardMaterial {
-    this.validateMaterialConfig(config);
-
-    const cacheKey = this.generateCacheKey('roman', config);
-    if (this.materialCache.has(cacheKey)) {
-      return this.materialCache.get(cacheKey)!;
-    }
-
-    const material = new THREE.MeshStandardMaterial({
-      color: config.color || 0x8b7355, // Default terracotta/stone color
-      roughness: config.roughness !== undefined ? config.roughness : 0.8,
-      metalness: config.metalness !== undefined ? config.metalness : 0.1,
-      map: config.map,
-      normalMap: config.normalMap,
-      flatShading: config.flatShading,
-    });
-
-    if (config.emissive) {
-      material.emissive = new THREE.Color(config.emissive);
-      material.emissiveIntensity = config.emissiveIntensity || 0;
-    }
-
-    // Cache the material
-    if (cacheKey) {
-      this.materialCache.set(cacheKey, material);
-    }
-
-    return material;
+    return RomanMaterialCreator.createMaterial(config, this.materialCache);
   }
 
   /**
    * Creates a standard material for the Cyberpunk era
    */
   public createCyberpunkMaterial(config: BaseMaterialConfig): THREE.MeshStandardMaterial {
-    this.validateMaterialConfig(config);
-
-    const cacheKey = this.generateCacheKey('cyberpunk', config);
-    if (this.materialCache.has(cacheKey)) {
-      return this.materialCache.get(cacheKey)!;
-    }
-
-    const material = new THREE.MeshStandardMaterial({
-      color: config.color || 0x2c3e50,
-      roughness: config.roughness ?? 0.2,
-      metalness: config.metalness ?? 0.8,
-      emissive: typeof config.emissive !== 'undefined' ? config.emissive : 0x000000,
-      emissiveIntensity: config.emissiveIntensity ?? 1.0,
-      map: config.map,
-      normalMap: config.normalMap,
-      flatShading: config.flatShading,
-    });
-
-    if (config.emissive) {
-      material.emissive = new THREE.Color(config.emissive || 0x00ffff); // Default cyan glow
-      material.emissiveIntensity =
-        config.emissiveIntensity !== undefined ? config.emissiveIntensity : 0.5;
-    }
-
-    // Cache the material
-    if (cacheKey) {
-      this.materialCache.set(cacheKey, material);
-    }
-
-    return material;
+    return CyberpunkMaterialCreator.createMaterial(config, this.materialCache);
   }
 
   /**
    * Creates a building material based on building type and era
    */
   public createBuildingMaterial(config: BuildingMaterialConfig): THREE.MeshStandardMaterial {
-    // Validate required fields
-    if (!config.buildingType) {
-      throw new Error('buildingType is required for building materials');
-    }
-
-    if (!config.era || (config.era !== 'roman' && config.era !== 'cyberpunk')) {
-      throw new Error('era must be either "roman" or "cyberpunk"');
-    }
-
-    // Validate other inputs
-    this.validateMaterialConfig(config);
-
-    const cacheKey = `building_${config.buildingType}_${config.era}`;
-
-    // Return cached material if it exists
-    if (this.materialCache.has(cacheKey)) {
-      return this.materialCache.get(cacheKey)!.clone();
-    }
-
-    // Create era-specific material
-    return config.era === 'roman'
-      ? this.createRomanMaterial({ ...config, cacheKey })
-      : this.createCyberpunkMaterial({ ...config, cacheKey });
+    return BuildingMaterialCreator.createMaterial(config, this.materialCache);
   }
 
   /**
    * Creates a custom standard material with specified properties
    */
   public createCustomMaterial(config: CustomMaterialConfig): THREE.MeshStandardMaterial {
-    this.validateMaterialConfig(config);
-
-    const cacheKey = this.generateCacheKey('custom', config);
-    if (this.materialCache.has(cacheKey)) {
-      return this.materialCache.get(cacheKey)!;
-    }
-
-    // Extract THREE.MeshStandardMaterial properties
-    const materialProps: Record<
-      string,
-      THREE.ColorRepresentation | number | THREE.Texture | boolean | undefined
-    > = {};
-    for (const [key, value] of Object.entries(config)) {
-      if (key !== 'cacheKey') {
-        materialProps[key] = value;
-      }
-    }
-
-    const material = new THREE.MeshStandardMaterial(
-      materialProps as THREE.MeshStandardMaterialParameters
-    );
-
-    // Cache the material if a key is provided
-    if (cacheKey) {
-      this.materialCache.set(cacheKey, material);
-    }
-
-    return material;
+    return CustomMaterialCreator.createMaterial(config, this.materialCache);
   }
 
   /**
@@ -297,8 +193,57 @@ export class MaterialFactory {
     // Get the cached material
     const material = this.materialCache.get(cacheKey)!;
 
-    // Update the material using our new updateMaterial function
-    return updateMaterial(material, properties);
+    // Update the material using MaterialUpdateSystem
+    return MaterialUpdateSystem.updateMaterialProperties(material, properties);
+  }
+
+  /**
+   * Batch updates multiple cached materials with the same properties
+   * Useful for efficiently updating groups of related materials
+   *
+   * @param cacheKeys Array of cache keys for materials to update
+   * @param properties New properties to apply to all materials
+   * @returns Array of updated materials (null entries for materials not found)
+   */
+  public batchUpdateMaterials(
+    cacheKeys: string[],
+    properties: MaterialUpdateConfig
+  ): (THREE.MeshStandardMaterial | null)[] {
+    return cacheKeys.map((key) => this.updateCachedMaterial(key, properties));
+  }
+
+  /**
+   * Updates all materials on a mesh or mesh hierarchy
+   *
+   * @param root The root object to traverse for materials
+   * @param properties New properties to apply
+   * @param filter Optional filter function to select which materials to update
+   */
+  public updateMeshMaterials(
+    root: THREE.Object3D,
+    properties: MaterialUpdateConfig,
+    filter?: (material: THREE.Material) => boolean
+  ): void {
+    MaterialUpdateSystem.updateMeshMaterials(root, properties, filter);
+  }
+
+  /**
+   * Interpolates a material between two states
+   * Useful for transitions between visual states
+   *
+   * @param material The material to update
+   * @param startProps Starting material properties
+   * @param endProps Target material properties
+   * @param progress Interpolation factor (0-1)
+   * @returns The updated material
+   */
+  public interpolateMaterial(
+    material: THREE.MeshStandardMaterial,
+    startProps: MaterialUpdateConfig,
+    endProps: MaterialUpdateConfig,
+    progress: number
+  ): THREE.MeshStandardMaterial {
+    return MaterialUpdateSystem.interpolateMaterial(material, startProps, endProps, progress);
   }
 
   /**
@@ -309,19 +254,6 @@ export class MaterialFactory {
    */
   public getCachedMaterial(cacheKey: string): THREE.MeshStandardMaterial | null {
     return this.materialCache.has(cacheKey) ? this.materialCache.get(cacheKey)! : null;
-  }
-
-  /**
-   * Validates the common material configuration properties
-   */
-  private validateMaterialConfig(config: BaseMaterialConfig): void {
-    validateColor(config.color, 'color');
-    validateColor(config.emissive, 'emissive');
-    validateNumericRange(config.roughness, 'roughness');
-    validateNumericRange(config.metalness, 'metalness');
-    validateNumericRange(config.emissiveIntensity, 'emissiveIntensity', 0, 10);
-    validateTexture(config.map, 'map');
-    validateTexture(config.normalMap, 'normalMap');
   }
 }
 
@@ -335,3 +267,6 @@ export type {
   CustomMaterialConfig,
   MaterialUpdateConfig,
 } from './materials/types';
+
+// Export the utility functions and systems for direct use
+export { MaterialUpdateSystem } from './materials/MaterialUpdateSystem';

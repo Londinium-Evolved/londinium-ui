@@ -124,16 +124,89 @@ const material = materialFactory.createRomanMaterial({
 });
 ```
 
-## Architecture
+## Enhanced Material Update System
 
-The system is composed of several modules:
+The material system now includes advanced update capabilities to efficiently modify materials without creating new instances:
 
-- `materialFactory.ts`: Main factory class implementing the singleton pattern
-- `types.ts`: TypeScript interfaces and types
-- `validators.ts`: Input validation functions
-- `colorUtils.ts`: Color manipulation utilities
-- `cacheKeyGenerator.ts`: Cache key generation logic
-- `materialUpdater.ts`: Material property update functionality
+### Basic Updates
+
+```typescript
+// Update a single cached material
+materialFactory.updateCachedMaterial('my-material', {
+  roughness: 0.5,
+  metalness: 0.8,
+});
+```
+
+### Batch Updates
+
+```typescript
+// Update multiple materials at once
+materialFactory.batchUpdateMaterials(['material1', 'material2', 'material3'], {
+  emissive: '#00ffff',
+  emissiveIntensity: 0.5,
+});
+```
+
+### Mesh Hierarchy Updates
+
+```typescript
+// Update all materials on a model or scene
+materialFactory.updateMeshMaterials(myModel, {
+  roughness: 0.3,
+  metalness: 0.7,
+});
+
+// Update only specific materials using a filter
+materialFactory.updateMeshMaterials(myModel, { emissive: '#ff0000' }, (material) =>
+  material.name.includes('Highlight')
+);
+```
+
+### Material Transitions
+
+```typescript
+// Smoothly transition between material states
+const romanState = { roughness: 0.8, metalness: 0.1, color: '#8b7355' };
+const cyberpunkState = { roughness: 0.2, metalness: 0.8, color: '#2c3e50' };
+
+// Transition 60% of the way from Roman to Cyberpunk
+materialFactory.interpolateMaterial(material, romanState, cyberpunkState, 0.6);
+```
+
+## Modular Architecture
+
+The material system has been refactored into a modular architecture for better maintainability:
+
+### Core Components
+
+- **MaterialFactory**: Centralized facade for material creation and management
+- **Material Creators**: Specialized classes for specific material types
+  - `RomanMaterialCreator`: Roman-era material creation
+  - `CyberpunkMaterialCreator`: Cyberpunk-era material creation
+  - `BuildingMaterialCreator`: Building-specific materials
+  - `CustomMaterialCreator`: Custom material properties
+- **MaterialUpdateSystem**: Advanced material update capabilities
+- **Validators**: Input validation and error handling
+- **CacheKeyGenerator**: Automatic material caching system
+
+### Directory Structure
+
+```
+materials/
+├── creators/
+│   ├── RomanMaterialCreator.ts
+│   ├── CyberpunkMaterialCreator.ts
+│   ├── BuildingMaterialCreator.ts
+│   ├── CustomMaterialCreator.ts
+│   └── index.ts
+├── types.ts
+├── validators.ts
+├── automaticCacheKeyGenerator.ts
+├── materialUpdater.ts
+├── MaterialUpdateSystem.ts
+└── README.md
+```
 
 ## Testing
 

@@ -29,7 +29,8 @@ export class ModelLoaderSystem extends System {
    * Main update method called each frame
    * Processes model loading and transition updates
    */
-  public update(_deltaTime: number): void {
+  public update(deltaTime: number): void {
+    void deltaTime;
     const entities = this.getEntitiesWithComponent('modelLoader');
 
     for (const entity of entities) {
