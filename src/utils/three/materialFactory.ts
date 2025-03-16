@@ -235,7 +235,7 @@ export class MaterialFactory {
     const keyObj: KeyObject = {};
 
     // Handle color
-    const color = config.color;
+    const {color} = config;
     if (color !== undefined) {
       if (color instanceof THREE.Color) {
         keyObj.c = color.getHexString();
