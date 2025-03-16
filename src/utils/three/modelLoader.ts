@@ -412,14 +412,16 @@ export class ModelLoader {
   public updateModelTransition(model: THREE.Group, progress: number): void {
     // Get morph targets
     const morphableModel = model as MorphableGroup;
-    const morphTargets = morphableModel.morphTargets;
+    const { morphTargets } = morphableModel;
     if (!morphTargets) {
+      return;
+    }
 
     // Apply transition to all morphable meshes
     model.traverse((obj) => {
       if (!(obj instanceof THREE.Mesh)) return;
 
-      const geometry = obj.geometry;
+      const { geometry } = obj;
       if (morphTargets.has(geometry)) {
         // Get target geometry
         const targetGeometry = morphTargets.get(geometry)!;
@@ -544,18 +546,16 @@ export class ModelLoader {
     model.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
         if (Array.isArray(child.material)) {
-                  child.material.forEach((mat) => {
-                    if (!materialMap.has(mat.uuid)) {
-                      materialMap.set(mat.uuid, mat);
-                      materials.push(mat);
-                    }
-                  });
-                }
-        else if (!materialMap.has(child.material.uuid)) {
-                    materialMap.set(child.material.uuid, child.material);
-                    materials.push(child.material);
-                  }
-
+          child.material.forEach((mat) => {
+            if (!materialMap.has(mat.uuid)) {
+              materialMap.set(mat.uuid, mat);
+              materials.push(mat);
+            }
+          });
+        } else if (!materialMap.has(child.material.uuid)) {
+          materialMap.set(child.material.uuid, child.material);
+          materials.push(child.material);
+        }
       }
     });
 
