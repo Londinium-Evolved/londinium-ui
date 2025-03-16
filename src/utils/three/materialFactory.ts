@@ -256,7 +256,7 @@ export class MaterialFactory {
     }
 
     // Handle emissive color
-    const emissive = config.emissive;
+    const {emissive} = config;
     if (emissive !== undefined) {
       if (emissive instanceof THREE.Color) {
         keyObj.e = emissive.getHexString();
