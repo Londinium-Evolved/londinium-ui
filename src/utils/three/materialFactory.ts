@@ -266,7 +266,7 @@ export class MaterialFactory {
     }
 
     // Handle emissive intensity
-    const emissiveIntensity = config.emissiveIntensity;
+    const {emissiveIntensity} = config;
     if (typeof emissiveIntensity === 'number') {
       keyObj.ei = emissiveIntensity;
     }
