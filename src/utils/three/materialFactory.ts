@@ -65,6 +65,7 @@ export class MaterialFactory {
     emissiveIntensity?: number;
     map?: THREE.Texture;
     normalMap?: THREE.Texture;
+    flatShading?: boolean;
     cacheKey?: string;
   }): THREE.MeshStandardMaterial {
     const cacheKey = config.cacheKey || this.generateCacheKey('roman', config);
@@ -80,6 +81,7 @@ export class MaterialFactory {
       metalness: config.metalness !== undefined ? config.metalness : 0.1,
       map: config.map,
       normalMap: config.normalMap,
+      flatShading: config.flatShading,
     });
 
     if (config.emissive) {
@@ -106,6 +108,7 @@ export class MaterialFactory {
     emissiveIntensity?: number;
     map?: THREE.Texture;
     normalMap?: THREE.Texture;
+    flatShading?: boolean;
     cacheKey?: string;
   }): THREE.MeshStandardMaterial {
     const cacheKey = config.cacheKey || this.generateCacheKey('cyberpunk', config);
@@ -121,6 +124,7 @@ export class MaterialFactory {
       metalness: config.metalness !== undefined ? config.metalness : 0.8,
       map: config.map,
       normalMap: config.normalMap,
+      flatShading: config.flatShading,
     });
 
     if (config.emissive) {
@@ -150,6 +154,7 @@ export class MaterialFactory {
     emissiveIntensity?: number;
     map?: THREE.Texture;
     normalMap?: THREE.Texture;
+    flatShading?: boolean;
   }): THREE.MeshStandardMaterial {
     const cacheKey = `building_${config.buildingType}_${config.era}`;
 

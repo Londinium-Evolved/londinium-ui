@@ -370,4 +370,36 @@ describe('MaterialFactory', () => {
       expect(material1).not.toBe(material2);
     });
   });
+
+  describe('Material properties', () => {
+    it('should respect flatShading setting when provided', () => {
+      // Create a material with flatShading = true
+      const materialWithFlatShading = materialFactory.createRomanMaterial({
+        flatShading: true,
+        cacheKey: 'test-flat-shading-true',
+      });
+      expect(materialWithFlatShading.flatShading).toBe(true);
+
+      // Create a material with flatShading = false
+      const materialWithoutFlatShading = materialFactory.createRomanMaterial({
+        flatShading: false,
+        cacheKey: 'test-flat-shading-false',
+      });
+      expect(materialWithoutFlatShading.flatShading).toBe(false);
+
+      // Verify different cache keys are generated
+      const material1 = materialFactory.createCustomMaterial({
+        color: 0xff0000,
+        flatShading: true,
+      } as unknown as Record<string, THREE.ColorRepresentation | number | THREE.Texture | string | undefined>);
+
+      const material2 = materialFactory.createCustomMaterial({
+        color: 0xff0000,
+        flatShading: false,
+      } as unknown as Record<string, THREE.ColorRepresentation | number | THREE.Texture | string | undefined>);
+
+      // Should be different instances due to different flatShading values
+      expect(material1).not.toBe(material2);
+    });
+  });
 });

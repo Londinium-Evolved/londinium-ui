@@ -44,6 +44,7 @@ const TerrainGenerator = ({ width = 100, height = 100, scale = 20, resolution = 
         color: '#5B8731',
         roughness: 0.8,
         metalness: 0.2,
+        flatShading: false,
         cacheKey: 'terrain_material',
       })
     );
