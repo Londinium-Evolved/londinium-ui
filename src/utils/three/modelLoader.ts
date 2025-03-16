@@ -413,7 +413,7 @@ export class ModelLoader {
     // Get morph targets
     const morphableModel = model as MorphableGroup;
     const morphTargets = morphableModel.morphTargets;
-    if (!morphTargets) return;
+    if (!morphTargets) {
 
     // Apply transition to all morphable meshes
     model.traverse((obj) => {
