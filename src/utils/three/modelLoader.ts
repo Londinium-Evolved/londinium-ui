@@ -413,7 +413,7 @@ export class ModelLoader {
     // Get morph targets
     const morphableModel = model as MorphableGroup;
     const morphTargets = morphableModel.morphTargets;
-    if (!morphTargets) return;
+    if (!morphTargets) {
 
     // Apply transition to all morphable meshes
     model.traverse((obj) => {
@@ -544,18 +544,18 @@ export class ModelLoader {
     model.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
         if (Array.isArray(child.material)) {
-          child.material.forEach((mat) => {
-            if (!materialMap.has(mat.uuid)) {
-              materialMap.set(mat.uuid, mat);
-              materials.push(mat);
-            }
-          });
-        } else {
-          if (!materialMap.has(child.material.uuid)) {
-            materialMap.set(child.material.uuid, child.material);
-            materials.push(child.material);
-          }
-        }
+                  child.material.forEach((mat) => {
+                    if (!materialMap.has(mat.uuid)) {
+                      materialMap.set(mat.uuid, mat);
+                      materials.push(mat);
+                    }
+                  });
+                }
+        else if (!materialMap.has(child.material.uuid)) {
+                    materialMap.set(child.material.uuid, child.material);
+                    materials.push(child.material);
+                  }
+
       }
     });
 
