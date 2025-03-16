@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BuildingConfig } from './buildingGenerator';
 import { BuildingType } from '../../state/BuildingState';
 import { Era } from '../../state/gameState';
+import { materialFactory } from '../three/materialFactory';
 
 /**
  * Interface for JSON-serializable building configuration
@@ -294,20 +295,37 @@ export class ConfigurationLoader {
     configs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>
   ): void {
     for (const eras of Object.values(configs)) {
-      for (const era of Object.values(eras)) {
+      for (const [eraType, era] of Object.entries(eras)) {
         const material = era.material;
         // If the material isn't a proper THREE.js material yet, convert it
         if (!(material instanceof THREE.Material) && typeof material === 'object') {
-          const matConfig = material as THREE.MeshStandardMaterial;
-          era.material = new THREE.MeshStandardMaterial({
-            color: matConfig.color,
-            roughness: matConfig.roughness,
-            metalness: matConfig.metalness,
-          });
+          const matConfig = material as unknown as {
+            color: THREE.ColorRepresentation;
+            roughness?: number;
+            metalness?: number;
+            emissive?: THREE.ColorRepresentation;
+            emissiveIntensity?: number;
+          };
 
-          if (matConfig.emissive) {
-            era.material.emissive = new THREE.Color(matConfig.emissive);
-            era.material.emissiveIntensity = matConfig.emissiveIntensity || 0;
+          // Use our factory based on the era
+          if (eraType === 'roman') {
+            era.material = materialFactory.createRomanMaterial({
+              color: matConfig.color,
+              roughness: matConfig.roughness,
+              metalness: matConfig.metalness,
+              emissive: matConfig.emissive,
+              emissiveIntensity: matConfig.emissiveIntensity,
+              cacheKey: `config_roman_${JSON.stringify(matConfig.color)}`,
+            });
+          } else {
+            era.material = materialFactory.createCyberpunkMaterial({
+              color: matConfig.color,
+              roughness: matConfig.roughness,
+              metalness: matConfig.metalness,
+              emissive: matConfig.emissive,
+              emissiveIntensity: matConfig.emissiveIntensity,
+              cacheKey: `config_cyberpunk_${JSON.stringify(matConfig.color)}`,
+            });
           }
         }
       }

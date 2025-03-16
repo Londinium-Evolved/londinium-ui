@@ -1,11 +1,81 @@
 import * as THREE from 'three';
 import { BuildingMeshData } from './buildingGenerator';
+import { materialFactory } from '../three/materialFactory';
 
 /**
  * BuildingLOD provides utilities for creating Level of Detail (LOD) models
  * for procedurally generated buildings. This helps maintain performance
  * by using simpler models for buildings far from the camera.
  */
+
+/**
+ * Creates a LOD material based on the original material and detail factor
+ *
+ * @param material The original material to base the LOD material on
+ * @param detailFactor Detail factor (0-1) where 1 is lowest detail
+ * @param type Building type for cache key generation
+ * @param lodLevel The current LOD level
+ * @param totalLevels Total number of LOD levels
+ * @returns A material suitable for the specified LOD level
+ */
+function createLODMaterial(
+  material: THREE.Material,
+  detailFactor: number,
+  type: string,
+  lodLevel: number,
+  totalLevels: number
+): THREE.Material {
+  if (material instanceof THREE.MeshStandardMaterial) {
+    // Create a cache key for this material
+    const cacheKey = `lod_${type}_${lodLevel}_${totalLevels}`;
+
+    // Check if material already exists in cache
+    const cachedMaterial = materialFactory.getCachedMaterial(cacheKey);
+    if (cachedMaterial) {
+      // If the material exists in cache, just update the normal scale if needed
+      if (material.normalMap && detailFactor < 0.5) {
+        const normalScale = material.normalScale.clone().multiplyScalar(1 - detailFactor);
+        materialFactory.updateCachedMaterial(cacheKey, {
+          normalScale: normalScale,
+        });
+      }
+      return cachedMaterial;
+    }
+
+    // Create material properties object
+    const materialProps: Record<
+      string,
+      THREE.ColorRepresentation | number | THREE.Texture | string | undefined
+    > = {
+      color: material.color,
+      roughness: Math.min(1, material.roughness + detailFactor * 0.3),
+      metalness: Math.max(0, material.metalness - detailFactor * 0.3),
+      emissive: material.emissive,
+      emissiveIntensity: material.emissiveIntensity,
+      cacheKey: cacheKey,
+    };
+
+    // Only add normalMap if needed (for closer LOD levels)
+    if (material.normalMap && detailFactor < 0.5) {
+      materialProps.normalMap = material.normalMap;
+
+      // Create the material with normal map
+      const lodMaterial = materialFactory.createCustomMaterial(materialProps);
+
+      // Handle normal scale separately (Vector2 can't be directly passed to factory)
+      const normalScale = material.normalScale.clone().multiplyScalar(1 - detailFactor);
+      lodMaterial.normalScale.copy(normalScale);
+
+      return lodMaterial;
+    } else {
+      // Create the material without normal map
+      return materialFactory.createCustomMaterial(materialProps);
+    }
+  }
+
+  // Fallback for non-standard material types
+  return material.clone();
+}
 
 /**
  * Creates a LOD (Level of Detail) object for a procedurally generated building
@@ -42,20 +112,8 @@ export function createBuildingLOD(
     const lodGeometry = lodGeometries[i];
     const detailFactor = i / (lodGeometries.length - 1); // 0 to 1
 
-    // Simple material for lower detail levels
-    const lodMaterial = material.clone();
-
-    // For lower LODs, simplify the material too
-    if (lodMaterial instanceof THREE.MeshStandardMaterial) {
-      // Reduce material complexity for distant objects
-      lodMaterial.roughness = Math.min(1, lodMaterial.roughness + detailFactor * 0.3);
-      lodMaterial.metalness = Math.max(0, lodMaterial.metalness - detailFactor * 0.3);
-
-      // Reduce or eliminate normal maps for distant objects
-      if (lodMaterial.normalMap) {
-        lodMaterial.normalScale.multiplyScalar(1 - detailFactor);
-      }
-    }
+    // Create LOD material using the helper function
+    const lodMaterial = createLODMaterial(material, detailFactor, type, i, lodGeometries.length);
 
     // Create the mesh for this LOD level
     const lodMesh = new THREE.Mesh(lodGeometry, lodMaterial);

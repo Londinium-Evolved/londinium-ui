@@ -8,6 +8,7 @@ import {
   createRomanRoof,
 } from './buildingCSG';
 import { ConfigurationLoader, initializeConfigurationLoader } from './configurationLoader';
+import { materialFactory } from '../three/materialFactory';
 
 // Simple random number generator class since THREE.MathUtils.Random doesn't exist
 class RandomGenerator {
@@ -417,17 +418,20 @@ export function getBuildingConfig(
 function createRomanMaterials(config: BuildingConfig) {
   return {
     wallMaterial: config.material.clone(),
-    floorMaterial: new THREE.MeshStandardMaterial({
+    floorMaterial: materialFactory.createRomanMaterial({
       color: 0xd9c9a8,
       roughness: 0.8,
+      cacheKey: 'roman_floor',
     }),
-    roofMaterial: new THREE.MeshStandardMaterial({
+    roofMaterial: materialFactory.createRomanMaterial({
       color: 0xa86f32,
       roughness: 0.7,
+      cacheKey: 'roman_roof',
     }),
-    columnMaterial: new THREE.MeshStandardMaterial({
+    columnMaterial: materialFactory.createRomanMaterial({
       color: 0xe8e0d0,
       roughness: 0.4,
+      cacheKey: 'roman_column',
     }),
   };
 }
