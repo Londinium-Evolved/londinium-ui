@@ -9,6 +9,62 @@ import { materialFactory } from '../three/materialFactory';
  */
 
 /**
+ * Creates a LOD material based on the original material and detail factor
+ *
+ * @param material The original material to base the LOD material on
+ * @param detailFactor Detail factor (0-1) where 1 is lowest detail
+ * @param type Building type for cache key generation
+ * @param lodLevel The current LOD level
+ * @param totalLevels Total number of LOD levels
+ * @returns A material suitable for the specified LOD level
+ */
+function createLODMaterial(
+  material: THREE.Material,
+  detailFactor: number,
+  type: string,
+  lodLevel: number,
+  totalLevels: number
+): THREE.Material {
+  if (material instanceof THREE.MeshStandardMaterial) {
+    // Create material properties object
+    const materialProps: Record<
+      string,
+      THREE.ColorRepresentation | number | THREE.Texture | string | undefined
+    > = {
+      color: material.color,
+      roughness: Math.min(1, material.roughness + detailFactor * 0.3),
+      metalness: Math.max(0, material.metalness - detailFactor * 0.3),
+      emissive: material.emissive,
+      emissiveIntensity: material.emissiveIntensity,
+      cacheKey: `lod_${type}_${lodLevel}_${totalLevels}`,
+    };
+
+    // Create the material
+    let lodMaterial: THREE.MeshStandardMaterial;
+
+    // Only add normalMap if needed (for closer LOD levels)
+    if (material.normalMap && detailFactor < 0.5) {
+      materialProps.normalMap = material.normalMap;
+
+      // Create the material with normal map
+      lodMaterial = materialFactory.createCustomMaterial(materialProps);
+
+      // Handle normal scale separately (Vector2 can't be directly passed to factory)
+      const normalScale = material.normalScale.clone().multiplyScalar(1 - detailFactor);
+      lodMaterial.normalScale.copy(normalScale);
+    } else {
+      // Create the material without normal map
+      lodMaterial = materialFactory.createCustomMaterial(materialProps);
+    }
+
+    return lodMaterial;
+  }
+
+  // Fallback for non-standard material types
+  return material.clone();
+}
+
+/**
  * Creates a LOD (Level of Detail) object for a procedurally generated building
  *
  * @param buildingData The building mesh data from the generator
@@ -43,41 +99,8 @@ export function createBuildingLOD(
     const lodGeometry = lodGeometries[i];
     const detailFactor = i / (lodGeometries.length - 1); // 0 to 1
 
-    // Get material parameters from the original material for LOD creation
-    let lodMaterial;
-    if (material instanceof THREE.MeshStandardMaterial) {
-      // Create material properties object
-      const materialProps: Record<
-        string,
-        THREE.ColorRepresentation | number | THREE.Texture | string | undefined
-      > = {
-        color: material.color,
-        roughness: Math.min(1, material.roughness + detailFactor * 0.3),
-        metalness: Math.max(0, material.metalness - detailFactor * 0.3),
-        emissive: material.emissive,
-        emissiveIntensity: material.emissiveIntensity,
-        cacheKey: `lod_${type}_${i}_${lodGeometries.length}`,
-      };
-
-      // Only add normalMap if needed (for closer LOD levels)
-      if (material.normalMap && detailFactor < 0.5) {
-        materialProps.normalMap = material.normalMap;
-
-        // Handle normal scale separately by adjusting the original material
-        // since Vector2 can't be directly passed to our factory
-        const normalScale = material.normalScale.clone().multiplyScalar(1 - detailFactor);
-
-        // Use the factory to create a new material with adjusted properties
-        lodMaterial = materialFactory.createCustomMaterial(materialProps);
-        lodMaterial.normalScale.copy(normalScale);
-      } else {
-        // Use the factory to create a new material without normal maps
-        lodMaterial = materialFactory.createCustomMaterial(materialProps);
-      }
-    } else {
-      // Fallback to simple cloning if not a MeshStandardMaterial
-      lodMaterial = material.clone();
-    }
+    // Create LOD material using the helper function
+    const lodMaterial = createLODMaterial(material, detailFactor, type, i, lodGeometries.length);
 
     // Create the mesh for this LOD level
     const lodMesh = new THREE.Mesh(lodGeometry, lodMaterial);
