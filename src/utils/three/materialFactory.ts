@@ -272,7 +272,7 @@ export class MaterialFactory {
     }
 
     // Handle textures
-    const map = config.map;
+    const {map} = config;
     if (map instanceof THREE.Texture) {
       keyObj.map = map.uuid;
     }
