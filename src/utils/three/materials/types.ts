@@ -7,10 +7,10 @@ export interface BaseMaterialConfig {
   color?: THREE.ColorRepresentation;
   roughness?: number;
   metalness?: number;
-  emissive?: THREE.ColorRepresentation;
-  emissiveIntensity?: number;
   map?: THREE.Texture;
   normalMap?: THREE.Texture;
+  emissive?: THREE.ColorRepresentation;
+  emissiveIntensity?: number;
   flatShading?: boolean;
   cacheKey?: string;
 }

@@ -103,23 +103,30 @@ export class MaterialFactory {
     return MaterialFactory.instance;
   }
 
+  private generateCacheKey(era: string, config: BaseMaterialConfig | CustomMaterialConfig): string {
+    // If a custom cache key is provided, use it
+    if (config.cacheKey) {
+      return config.cacheKey;
+    }
+
+    // Convert config into a plain object with iterator for cache key generation
+    const configWithIterator = {
+      ...config,
+      [Symbol.iterator](): Iterator<[string, unknown]> {
+        return Object.entries(this)[Symbol.iterator]();
+      },
+    };
+
+    return generateCacheKey(era, configWithIterator);
+  }
+
   /**
    * Creates a standard material for the Roman era
    */
   public createRomanMaterial(config: BaseMaterialConfig): THREE.MeshStandardMaterial {
-    // Validate inputs
     this.validateMaterialConfig(config);
 
-    const cacheKey =
-      config.cacheKey ||
-      generateCacheKey('roman', {
-        ...config,
-        [Symbol.iterator](): Iterator<[string, unknown]> {
-          return Object.entries(this)[Symbol.iterator]();
-        },
-      });
-
-    // Return cached material if it exists
+    const cacheKey = this.generateCacheKey('roman', config);
     if (this.materialCache.has(cacheKey)) {
       return this.materialCache.get(cacheKey)!;
     }
@@ -150,27 +157,19 @@ export class MaterialFactory {
    * Creates a standard material for the Cyberpunk era
    */
   public createCyberpunkMaterial(config: BaseMaterialConfig): THREE.MeshStandardMaterial {
-    // Validate inputs
     this.validateMaterialConfig(config);
 
-    const cacheKey =
-      config.cacheKey ||
-      generateCacheKey('cyberpunk', {
-        ...config,
-        [Symbol.iterator](): Iterator<[string, unknown]> {
-          return Object.entries(this)[Symbol.iterator]();
-        },
-      });
-
-    // Return cached material if it exists
+    const cacheKey = this.generateCacheKey('cyberpunk', config);
     if (this.materialCache.has(cacheKey)) {
       return this.materialCache.get(cacheKey)!;
     }
 
     const material = new THREE.MeshStandardMaterial({
-      color: config.color || 0x2c3e50, // Default dark blue-gray
-      roughness: config.roughness !== undefined ? config.roughness : 0.2,
-      metalness: config.metalness !== undefined ? config.metalness : 0.8,
+      color: config.color || 0x2c3e50,
+      roughness: config.roughness ?? 0.2,
+      metalness: config.metalness ?? 0.8,
+      emissive: typeof config.emissive !== 'undefined' ? config.emissive : 0x000000,
+      emissiveIntensity: config.emissiveIntensity ?? 1.0,
       map: config.map,
       normalMap: config.normalMap,
       flatShading: config.flatShading,
@@ -223,20 +222,10 @@ export class MaterialFactory {
    * Creates a custom standard material with specified properties
    */
   public createCustomMaterial(config: CustomMaterialConfig): THREE.MeshStandardMaterial {
-    // Validate standard inputs
     this.validateMaterialConfig(config);
 
-    const cacheKey =
-      config.cacheKey ||
-      generateCacheKey('custom', {
-        ...config,
-        [Symbol.iterator](): Iterator<[string, unknown]> {
-          return Object.entries(this)[Symbol.iterator]();
-        },
-      });
-
-    // Return cached material if it exists
-    if (cacheKey && this.materialCache.has(cacheKey)) {
+    const cacheKey = this.generateCacheKey('custom', config);
+    if (this.materialCache.has(cacheKey)) {
       return this.materialCache.get(cacheKey)!;
     }
 
