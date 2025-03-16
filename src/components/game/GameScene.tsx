@@ -46,7 +46,10 @@ export const GameScene = observer(({ era, eraProgress }: GameSceneProps) => {
       )}
 
       {/* This is where we'll render buildings */}
-      <BuildingsContainer buildings={buildingState.buildings} eraProgress={eraProgress} />
+      <BuildingsContainer
+        buildings={Object.values(buildingState.buildings)}
+        eraProgress={eraProgress}
+      />
     </group>
   );
 });

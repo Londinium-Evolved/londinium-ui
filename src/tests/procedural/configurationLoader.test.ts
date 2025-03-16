@@ -416,7 +416,7 @@ describe('ConfigurationLoader', () => {
           material: new THREE.MeshStandardMaterial({ color: '#000000' }),
         },
       },
-    } as Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
+    } as unknown as Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
 
   beforeEach(() => {
     // Reset the module between tests
@@ -463,4 +463,29 @@ describe('ConfigurationLoader', () => {
     expect(serialized.buildingTypes.domus.roman.widthRange).toEqual([1, 2]);
     expect(serialized.buildingTypes.domus.roman.material.color).toBeDefined();
   });
+
+  // Add the missing building types
+  defaultConfigs['amphitheater'] = {
+    roman: {
+      widthRange: [1, 2],
+      depthRange: [1, 2],
+      heightRange: [1, 2],
+      material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
+    },
+    cyberpunk: {
+      widthRange: [1, 2],
+      depthRange: [1, 2],
+      heightRange: [1, 2],
+      material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+    },
+  };
+  defaultConfigs['nano-fabricator'] = defaultConfigs['megacorp-tower']; // Reuse existing config for simplicity
+  // Replace entertainment-complex with entertainment-hub
+  const typedConfigs = defaultConfigs as Record<
+    string,
+    { roman: BuildingConfig; cyberpunk: BuildingConfig }
+  >;
+  const hubConfig = typedConfigs['entertainment-complex'];
+  delete typedConfigs['entertainment-complex'];
+  defaultConfigs['entertainment-hub'] = hubConfig;
 });
