@@ -245,7 +245,7 @@ export class MaterialFactory {
     }
 
     // Handle numeric properties
-    const roughness = config.roughness;
+    const {roughness} = config;
     if (typeof roughness === 'number') {
       keyObj.r = roughness;
     }
