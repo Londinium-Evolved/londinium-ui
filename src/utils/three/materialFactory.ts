@@ -250,7 +250,7 @@ export class MaterialFactory {
       keyObj.r = roughness;
     }
 
-    const metalness = config.metalness;
+    const {metalness} = config;
     if (typeof metalness === 'number') {
       keyObj.m = metalness;
     }
