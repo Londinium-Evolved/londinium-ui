@@ -277,7 +277,7 @@ export class MaterialFactory {
       keyObj.map = map.uuid;
     }
 
-    const normalMap = config.normalMap;
+    const {normalMap} = config;
     if (normalMap instanceof THREE.Texture) {
       keyObj.nm = normalMap.uuid;
     }
