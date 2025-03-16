@@ -232,7 +232,7 @@ export class MaterialFactory {
     // Extract THREE.MeshStandardMaterial properties
     const materialProps: Record<
       string,
-      THREE.ColorRepresentation | number | THREE.Texture | undefined
+      THREE.ColorRepresentation | number | THREE.Texture | boolean | undefined
     > = {};
     for (const [key, value] of Object.entries(config)) {
       if (key !== 'cacheKey') {
