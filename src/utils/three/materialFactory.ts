@@ -6,8 +6,8 @@ import {
   MaterialUpdateConfig,
 } from './materials/types';
 import { validateColor, validateNumericRange, validateTexture } from './materials/validators';
-import { generateCacheKey } from './materials/cacheKeyGenerator';
 import { updateMaterial } from './materials/materialUpdater';
+import { generateAutomaticCacheKey } from './materials/automaticCacheKeyGenerator';
 
 /**
  * Converts a color value to a hex string representation for consistent cache key generation
@@ -104,20 +104,7 @@ export class MaterialFactory {
   }
 
   private generateCacheKey(era: string, config: BaseMaterialConfig | CustomMaterialConfig): string {
-    // If a custom cache key is provided, use it
-    if (config.cacheKey) {
-      return config.cacheKey;
-    }
-
-    // Convert config into a plain object with iterator for cache key generation
-    const configWithIterator = {
-      ...config,
-      [Symbol.iterator](): Iterator<[string, unknown]> {
-        return Object.entries(this)[Symbol.iterator]();
-      },
-    };
-
-    return generateCacheKey(era, configWithIterator);
+    return generateAutomaticCacheKey(era, config);
   }
 
   /**

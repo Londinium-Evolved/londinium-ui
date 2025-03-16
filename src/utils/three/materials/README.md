@@ -23,20 +23,20 @@ import { materialFactory } from './materialFactory';
 // Create a Roman material
 const romanMaterial = materialFactory.createRomanMaterial({
   color: '#8b7355',
-  roughness: 0.8
+  roughness: 0.8,
 });
 
 // Create a Cyberpunk material
 const cyberpunkMaterial = materialFactory.createCyberpunkMaterial({
   color: '#2c3e50',
-  emissive: '#00ffff'
+  emissive: '#00ffff',
 });
 
 // Create a building material
 const buildingMaterial = materialFactory.createBuildingMaterial({
   buildingType: 'domus',
   era: 'roman',
-  color: '#8b7355'
+  color: '#8b7355',
 });
 ```
 
@@ -47,7 +47,7 @@ Materials are automatically cached based on their properties. You can also speci
 ```typescript
 const material = materialFactory.createRomanMaterial({
   cacheKey: 'my-custom-material',
-  color: '#ff0000'
+  color: '#ff0000',
 });
 
 // Get the cached material
@@ -61,7 +61,7 @@ You can update existing materials without creating new instances:
 ```typescript
 materialFactory.updateCachedMaterial('my-custom-material', {
   roughness: 0.5,
-  metalness: 0.8
+  metalness: 0.8,
 });
 ```
 
@@ -73,6 +73,55 @@ materialFactory.disposeMaterial('my-custom-material');
 
 // Dispose all cached materials
 materialFactory.disposeCachedMaterials();
+```
+
+## Automatic Cache Key Generation
+
+The system now includes automatic cache key generation to avoid the need for manual cache keys. This provides several benefits:
+
+1. **Consistency**: Keys are generated in a standardized format
+2. **Correctness**: All relevant properties are included in the key
+3. **Convenience**: No need to manually create and manage cache keys
+4. **Deduplication**: Materials with identical properties automatically reuse the same instance
+
+### How it Works
+
+The `generateAutomaticCacheKey` function analyzes material properties and creates a deterministic key based on:
+
+- Material type prefix (roman, cyberpunk, custom)
+- Color properties (including hex values, emissive colors)
+- Numeric properties (roughness, metalness, etc.)
+- Texture references (using UUIDs for identification)
+- Boolean properties (flatShading, wireframe, etc.)
+
+### Usage Example
+
+In most cases, you don't need to specify cache keys manually:
+
+```typescript
+// Materials with identical properties will be cached and reused automatically
+const material1 = materialFactory.createRomanMaterial({
+  color: '#ff0000',
+  roughness: 0.5,
+});
+
+const material2 = materialFactory.createRomanMaterial({
+  color: '#ff0000',
+  roughness: 0.5,
+});
+
+// material1 and material2 will be the same instance
+console.log(material1 === material2); // true
+```
+
+For special cases where you want to control caching explicitly, you can still provide a manual cache key:
+
+```typescript
+const material = materialFactory.createRomanMaterial({
+  color: '#ff0000',
+  roughness: 0.5,
+  cacheKey: 'my-specific-key',
+});
 ```
 
 ## Architecture
