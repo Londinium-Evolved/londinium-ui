@@ -1,6 +1,46 @@
 import * as THREE from 'three';
 
 /**
+ * Converts a color value to a hex string representation for consistent cache key generation
+ *
+ * @param color Any color representation (string, number, THREE.Color, or object with r,g,b properties)
+ * @returns A consistent hex string representation of the color
+ */
+export function convertColorToHex(
+  color: THREE.ColorRepresentation | Record<string, number> | unknown
+): string {
+  // If already a string, return as is (assuming it's already in a consistent format)
+  if (typeof color === 'string') {
+    return color;
+  }
+
+  // If it's a THREE.Color object or has r,g,b properties
+  if (
+    color &&
+    typeof color === 'object' &&
+    'r' in color &&
+    typeof color.r === 'number' &&
+    'g' in color &&
+    typeof color.g === 'number' &&
+    'b' in color &&
+    typeof color.b === 'number'
+  ) {
+    const r = Math.round(color.r * 255);
+    const g = Math.round(color.g * 255);
+    const b = Math.round(color.b * 255);
+    return '#' + [r, g, b].map((val) => val.toString(16).padStart(2, '0')).join('');
+  }
+
+  // If it's a number (like 0xFF0000)
+  if (typeof color === 'number') {
+    return '#' + color.toString(16).padStart(6, '0');
+  }
+
+  // Fallback for any other type
+  return String(color);
+}
+
+/**
  * MaterialFactory - Enhanced Singleton Factory for THREE.js Materials
  *
  * This implementation follows the Singleton Factory pattern for creating and managing THREE.MeshStandardMaterial instances.
@@ -55,6 +95,122 @@ export class MaterialFactory {
   }
 
   /**
+   * Validates a color value to ensure it's in an acceptable format
+   * @param color The color to validate
+   * @param paramName The name of the parameter being validated (for error messages)
+   * @throws Error if the color format is invalid
+   */
+  private validateColor(color: unknown, paramName: string): void {
+    // If undefined, allow it (defaults will be used)
+    if (color === undefined) {
+      return;
+    }
+
+    // String colors (must be valid CSS color names or hex format)
+    if (typeof color === 'string') {
+      // Simple validation for hex colors (#RGB or #RRGGBB)
+      if (color.startsWith('#')) {
+        const validHexPattern = /^#([0-9A-F]{3}){1,2}$/i;
+        if (!validHexPattern.test(color)) {
+          throw new Error(`Invalid hex color format for ${paramName}: ${color}`);
+        }
+      }
+      // Allow other string formats (CSS colors will be validated by THREE.Color)
+      return;
+    }
+
+    // Number colors (must be positive)
+    if (typeof color === 'number') {
+      if (color < 0) {
+        throw new Error(`Invalid negative color value for ${paramName}: ${color}`);
+      }
+      return;
+    }
+
+    // THREE.Color objects or objects with r,g,b properties
+    if (color && typeof color === 'object') {
+      if (color instanceof THREE.Color) {
+        return;
+      }
+
+      if (
+        'r' in color &&
+        typeof color.r === 'number' &&
+        'g' in color &&
+        typeof color.g === 'number' &&
+        'b' in color &&
+        typeof color.b === 'number'
+      ) {
+        // Validate r, g, b values (should be between 0 and 1)
+        const { r, g, b } = color as { r: number; g: number; b: number };
+        if (r < 0 || r > 1 || g < 0 || g > 1 || b < 0 || b > 1) {
+          throw new Error(
+            `Invalid RGB values for ${paramName}: r=${r}, g=${g}, b=${b} (must be between 0 and 1)`
+          );
+        }
+        return;
+      }
+    }
+
+    // If we get here, the color format is not recognized
+    throw new Error(`Unsupported color format for ${paramName}: ${String(color)}`);
+  }
+
+  /**
+   * Validates a numeric value to ensure it's within an acceptable range
+   * @param value The value to validate
+   * @param paramName The name of the parameter being validated (for error messages)
+   * @param min Minimum allowed value (defaults to 0)
+   * @param max Maximum allowed value (defaults to 1)
+   * @throws Error if the value is outside the acceptable range
+   */
+  private validateNumericRange(
+    value: unknown,
+    paramName: string,
+    min: number = 0,
+    max: number = 1
+  ): void {
+    // If undefined, allow it (defaults will be used)
+    if (value === undefined) {
+      return;
+    }
+
+    if (typeof value !== 'number') {
+      throw new Error(`Invalid type for ${paramName}: expected number, got ${typeof value}`);
+    }
+
+    if (value < min || value > max) {
+      throw new Error(
+        `Invalid value for ${paramName}: ${value} (must be between ${min} and ${max})`
+      );
+    }
+  }
+
+  /**
+   * Validates a texture to ensure it's a valid THREE.Texture
+   * @param texture The texture to validate
+   * @param paramName The name of the parameter being validated (for error messages)
+   * @throws Error if the texture is invalid
+   */
+  private validateTexture(texture: unknown, paramName: string): void {
+    // If undefined, allow it (no texture will be used)
+    if (texture === undefined) {
+      return;
+    }
+
+    if (!(texture instanceof THREE.Texture)) {
+      throw new Error(
+        `Invalid type for ${paramName}: expected THREE.Texture, got ${typeof texture}`
+      );
+    }
+
+    // Check if texture has an image defined (might not be loaded yet)
+    if (!texture.image && texture.uuid === '') {
+      throw new Error(`Invalid texture for ${paramName}: texture has no image or UUID`);
+    }
+  }
+
+  /**
    * Creates a standard material for the Roman era
    */
   public createRomanMaterial(config: {
@@ -68,6 +224,15 @@ export class MaterialFactory {
     flatShading?: boolean;
     cacheKey?: string;
   }): THREE.MeshStandardMaterial {
+    // Validate inputs
+    this.validateColor(config.color, 'color');
+    this.validateColor(config.emissive, 'emissive');
+    this.validateNumericRange(config.roughness, 'roughness');
+    this.validateNumericRange(config.metalness, 'metalness');
+    this.validateNumericRange(config.emissiveIntensity, 'emissiveIntensity', 0, 10); // Allow higher values for emissive intensity
+    this.validateTexture(config.map, 'map');
+    this.validateTexture(config.normalMap, 'normalMap');
+
     const cacheKey = config.cacheKey || this.generateCacheKey('roman', config);
 
     // Return cached material if it exists
@@ -111,6 +276,15 @@ export class MaterialFactory {
     flatShading?: boolean;
     cacheKey?: string;
   }): THREE.MeshStandardMaterial {
+    // Validate inputs
+    this.validateColor(config.color, 'color');
+    this.validateColor(config.emissive, 'emissive');
+    this.validateNumericRange(config.roughness, 'roughness');
+    this.validateNumericRange(config.metalness, 'metalness');
+    this.validateNumericRange(config.emissiveIntensity, 'emissiveIntensity', 0, 10); // Allow higher values for emissive intensity
+    this.validateTexture(config.map, 'map');
+    this.validateTexture(config.normalMap, 'normalMap');
+
     const cacheKey = config.cacheKey || this.generateCacheKey('cyberpunk', config);
 
     // Return cached material if it exists
@@ -156,6 +330,24 @@ export class MaterialFactory {
     normalMap?: THREE.Texture;
     flatShading?: boolean;
   }): THREE.MeshStandardMaterial {
+    // Validate required fields
+    if (!config.buildingType) {
+      throw new Error('buildingType is required for building materials');
+    }
+
+    if (!config.era || (config.era !== 'roman' && config.era !== 'cyberpunk')) {
+      throw new Error('era must be either "roman" or "cyberpunk"');
+    }
+
+    // Validate other inputs
+    this.validateColor(config.color, 'color');
+    this.validateColor(config.emissive, 'emissive');
+    this.validateNumericRange(config.roughness, 'roughness');
+    this.validateNumericRange(config.metalness, 'metalness');
+    this.validateNumericRange(config.emissiveIntensity, 'emissiveIntensity', 0, 10);
+    this.validateTexture(config.map, 'map');
+    this.validateTexture(config.normalMap, 'normalMap');
+
     const cacheKey = `building_${config.buildingType}_${config.era}`;
 
     // Return cached material if it exists
@@ -183,6 +375,25 @@ export class MaterialFactory {
     cacheKey?: string;
     [key: string]: THREE.ColorRepresentation | number | THREE.Texture | string | undefined;
   }): THREE.MeshStandardMaterial {
+    // Validate standard inputs
+    this.validateColor(config.color, 'color');
+    this.validateColor(config.emissive, 'emissive');
+    this.validateNumericRange(config.roughness, 'roughness');
+    this.validateNumericRange(config.metalness, 'metalness');
+    this.validateNumericRange(config.emissiveIntensity, 'emissiveIntensity', 0, 10);
+    this.validateTexture(config.map, 'map');
+    this.validateTexture(config.normalMap, 'normalMap');
+
+    // Additional validation for known texture types
+    if (config.aoMap) this.validateTexture(config.aoMap, 'aoMap');
+    if (config.bumpMap) this.validateTexture(config.bumpMap, 'bumpMap');
+    if (config.displacementMap) this.validateTexture(config.displacementMap, 'displacementMap');
+    if (config.emissiveMap) this.validateTexture(config.emissiveMap, 'emissiveMap');
+    if (config.envMap) this.validateTexture(config.envMap, 'envMap');
+    if (config.metalnessMap) this.validateTexture(config.metalnessMap, 'metalnessMap');
+    if (config.roughnessMap) this.validateTexture(config.roughnessMap, 'roughnessMap');
+    if (config.alphaMap) this.validateTexture(config.alphaMap, 'alphaMap');
+
     const cacheKey = config.cacheKey || this.generateCacheKey('custom', config);
 
     // Return cached material if it exists
@@ -254,182 +465,107 @@ export class MaterialFactory {
    * Generates a cache key based on material properties
    */
   private generateCacheKey(prefix: string, config: Record<string, unknown>): string {
-    interface KeyObject {
-      c?: string;
-      r?: number;
-      m?: number;
-      e?: string;
-      ei?: number;
-      map?: string;
-      nm?: string;
-      // Additional properties for more complex materials
-      ao?: string; // Ambient occlusion map
-      bm?: string; // Bump map
-      dm?: string; // Displacement map
-      em?: string; // Emissive map
-      env?: string; // Environment map
-      rm?: string; // Roughness map
-      mm?: string; // Metalness map
-      alphaMap?: string; // Alpha map
-      wireframe?: boolean; // Wireframe rendering
-      flatShading?: boolean; // Flat shading
-      transparent?: boolean; // Transparency
-      opacity?: number; // Opacity level
-      side?: number; // Material side (FrontSide, BackSide, DoubleSide)
-      // Custom properties (will be stringified)
-      custom?: string;
+    // Define known property configurations for proper handling
+    interface PropertyConfig {
+      key: string; // The property name in the config
+      shortKey?: string; // Optional shortened key name for the cache key object
+      type: 'color' | 'number' | 'texture' | 'boolean' | 'vector' | 'other';
+      defaultProcess?: (value: unknown) => unknown; // Optional custom processor function
     }
 
-    // Create a simplified object for key generation
-    const keyObj: KeyObject = {};
+    // Define property configurations for standard material properties
+    const propertyConfigs: PropertyConfig[] = [
+      // Colors
+      { key: 'color', shortKey: 'c', type: 'color' },
+      { key: 'emissive', shortKey: 'e', type: 'color' },
 
-    // Handle color
-    const { color } = config;
-    if (color !== undefined) {
-      if (color instanceof THREE.Color) {
-        keyObj.c = color.getHexString();
-      } else {
-        keyObj.c = String(color);
+      // Numbers
+      { key: 'roughness', shortKey: 'r', type: 'number' },
+      { key: 'metalness', shortKey: 'm', type: 'number' },
+      { key: 'emissiveIntensity', shortKey: 'ei', type: 'number' },
+      { key: 'opacity', type: 'number' },
+      { key: 'side', type: 'number' },
+
+      // Textures
+      { key: 'map', type: 'texture' },
+      { key: 'normalMap', shortKey: 'nm', type: 'texture' },
+      { key: 'aoMap', shortKey: 'ao', type: 'texture' },
+      { key: 'bumpMap', shortKey: 'bm', type: 'texture' },
+      { key: 'displacementMap', shortKey: 'dm', type: 'texture' },
+      { key: 'emissiveMap', shortKey: 'em', type: 'texture' },
+      { key: 'envMap', shortKey: 'env', type: 'texture' },
+      { key: 'roughnessMap', shortKey: 'rm', type: 'texture' },
+      { key: 'metalnessMap', shortKey: 'mm', type: 'texture' },
+      { key: 'alphaMap', type: 'texture' },
+
+      // Booleans
+      { key: 'wireframe', type: 'boolean' },
+      { key: 'flatShading', type: 'boolean' },
+      { key: 'transparent', type: 'boolean' },
+    ];
+
+    // Create cache key object
+    const keyObj: Record<string, unknown> = {};
+
+    // Process each configured property
+    propertyConfigs.forEach((propConfig) => {
+      const value = config[propConfig.key];
+
+      // Skip undefined values
+      if (value === undefined) return;
+
+      // Determine the key to use in the output object
+      const outputKey = propConfig.shortKey || propConfig.key;
+
+      // Process based on property type
+      switch (propConfig.type) {
+        case 'color':
+          keyObj[outputKey] = convertColorToHex(value);
+          break;
+
+        case 'number':
+          if (typeof value === 'number') {
+            keyObj[outputKey] = value;
+          }
+          break;
+
+        case 'texture':
+          if (value instanceof THREE.Texture) {
+            keyObj[outputKey] = value.uuid;
+          }
+          break;
+
+        case 'boolean':
+          if (typeof value === 'boolean') {
+            keyObj[outputKey] = value;
+          }
+          break;
+
+        case 'vector':
+          // Handle vector types if needed
+          if (propConfig.defaultProcess) {
+            keyObj[outputKey] = propConfig.defaultProcess(value);
+          }
+          break;
+
+        case 'other':
+          // Use custom processor if defined
+          if (propConfig.defaultProcess) {
+            keyObj[outputKey] = propConfig.defaultProcess(value);
+          } else {
+            keyObj[outputKey] = value;
+          }
+          break;
       }
-    }
-
-    // Handle numeric properties
-    const { roughness } = config;
-    if (typeof roughness === 'number') {
-      keyObj.r = roughness;
-    }
-
-    const { metalness } = config;
-    if (typeof metalness === 'number') {
-      keyObj.m = metalness;
-    }
-
-    // Handle emissive color
-    const { emissive } = config;
-    if (emissive !== undefined) {
-      if (emissive instanceof THREE.Color) {
-        keyObj.e = emissive.getHexString();
-      } else {
-        keyObj.e = String(emissive);
-      }
-    }
-
-    // Handle emissive intensity
-    const { emissiveIntensity } = config;
-    if (typeof emissiveIntensity === 'number') {
-      keyObj.ei = emissiveIntensity;
-    }
-
-    // Handle textures
-    const { map } = config;
-    if (map instanceof THREE.Texture) {
-      keyObj.map = map.uuid;
-    }
-
-    const { normalMap } = config;
-    if (normalMap instanceof THREE.Texture) {
-      keyObj.nm = normalMap.uuid;
-    }
-
-    // Additional texture maps
-    const { aoMap } = config;
-    if (aoMap instanceof THREE.Texture) {
-      keyObj.ao = aoMap.uuid;
-    }
-
-    const { bumpMap } = config;
-    if (bumpMap instanceof THREE.Texture) {
-      keyObj.bm = bumpMap.uuid;
-    }
-
-    const { displacementMap } = config;
-    if (displacementMap instanceof THREE.Texture) {
-      keyObj.dm = displacementMap.uuid;
-    }
-
-    const { emissiveMap } = config;
-    if (emissiveMap instanceof THREE.Texture) {
-      keyObj.em = emissiveMap.uuid;
-    }
-
-    const { envMap } = config;
-    if (envMap instanceof THREE.Texture) {
-      keyObj.env = envMap.uuid;
-    }
-
-    const { roughnessMap } = config;
-    if (roughnessMap instanceof THREE.Texture) {
-      keyObj.rm = roughnessMap.uuid;
-    }
-
-    const { metalnessMap } = config;
-    if (metalnessMap instanceof THREE.Texture) {
-      keyObj.mm = metalnessMap.uuid;
-    }
-
-    const { alphaMap } = config;
-    if (alphaMap instanceof THREE.Texture) {
-      keyObj.alphaMap = alphaMap.uuid;
-    }
-
-    // Handle boolean properties
-    const { wireframe } = config;
-    if (typeof wireframe === 'boolean') {
-      keyObj.wireframe = wireframe;
-    }
-
-    const { flatShading } = config;
-    if (typeof flatShading === 'boolean') {
-      keyObj.flatShading = flatShading;
-    }
-
-    const { transparent } = config;
-    if (typeof transparent === 'boolean') {
-      keyObj.transparent = transparent;
-    }
-
-    // Handle additional numeric properties
-    const { opacity } = config;
-    if (typeof opacity === 'number') {
-      keyObj.opacity = opacity;
-    }
-
-    const { side } = config;
-    if (typeof side === 'number') {
-      keyObj.side = side;
-    }
+    });
 
     // Handle custom properties that don't fit the standard pattern
     const customProps: Record<string, unknown> = {};
+    const processedKeys = new Set(propertyConfigs.map((c) => c.key).concat(['cacheKey']));
+
     for (const [key, value] of Object.entries(config)) {
       // Skip properties we've already handled
-      if (
-        [
-          'color',
-          'roughness',
-          'metalness',
-          'emissive',
-          'emissiveIntensity',
-          'map',
-          'normalMap',
-          'aoMap',
-          'bumpMap',
-          'displacementMap',
-          'emissiveMap',
-          'envMap',
-          'roughnessMap',
-          'metalnessMap',
-          'alphaMap',
-          'wireframe',
-          'flatShading',
-          'transparent',
-          'opacity',
-          'side',
-          'cacheKey',
-        ].includes(key)
-      ) {
-        continue;
-      }
+      if (processedKeys.has(key)) continue;
 
       // Add non-standard properties to the custom object
       customProps[key] = value;
