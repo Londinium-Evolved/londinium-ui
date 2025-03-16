@@ -300,35 +300,9 @@ const Roads = ({ wallRadius = 35 }) => {
   );
 };
 
-// Era transition control
-const EraSlider = ({ onChange }: { onChange: (value: number) => void }) => {
-  const [era, setEra] = useState(0);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    setEra(value);
-    onChange(value);
-  };
-
-  return (
-    <div className='era-slider'>
-      <label>Era Transition: Roman {era}% → Cyberpunk</label>
-      <input
-        type='range'
-        min='0'
-        max='100'
-        value={era}
-        onChange={handleChange}
-        className='slider'
-      />
-    </div>
-  );
-};
-
 // Showcase component to demonstrate different materials created with MaterialFactory
 const MaterialShowcase = () => {
   const [registerDisposable] = useThreeDisposal();
-  const orbitControlsRef = useRef<any>(null);
 
   const MaterialExample = ({
     position,
@@ -410,7 +384,7 @@ const MaterialShowcase = () => {
         <MaterialExample position={[1, 0, 0]} material={cyberpunkBasic} type='Cyberpunk Basic' />
         <MaterialExample position={[3, 0, 0]} material={cyberpunkNeon} type='Cyberpunk Neon' />
 
-        <OrbitControls ref={orbitControlsRef} enableDamping dampingFactor={0.1} />
+        <OrbitControls enableDamping dampingFactor={0.1} />
       </Canvas>
     </div>
   );
