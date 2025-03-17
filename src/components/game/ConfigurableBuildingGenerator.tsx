@@ -272,7 +272,6 @@ const ConfigurableBuildingGenerator: React.FC = () => {
     'residential-stack',
     'amphitheater',
     'nano-fabricator',
-    'entertainment-hub',
     'data-center',
     'entertainment-hub',
   ];
