@@ -10,6 +10,7 @@ export class TimeState implements ITimeState {
   currentYear: number = 1;
   dayLength: number = 5000; // milliseconds per game day
   lastUpdateTime: number = Date.now();
+  elapsedTimeAccumulator: number = 0; // Accumulator for partial days
 
   // Game speed controls
   paused: boolean = false;
@@ -84,17 +85,40 @@ export class TimeState implements ITimeState {
   updateGameTime() {
     const now = Date.now();
     const elapsed = now - this.lastUpdateTime;
+    this.lastUpdateTime = now;
 
-    // Calculate how much of a day has passed
-    const dayFraction = elapsed / this.effectiveDayLength;
+    // Skip updates when elapsed time is zero
+    if (elapsed <= 0) return;
 
-    if (dayFraction > 0) {
-      // Advance the day counter, potentially rolling over to a new year
-      this.advanceTime(dayFraction);
+    // Add elapsed time to accumulator
+    this.elapsedTimeAccumulator += elapsed;
 
-      // Update the last update time, accounting for any remainder
-      const usedTime = Math.floor(dayFraction) * this.effectiveDayLength;
-      this.lastUpdateTime = now - (elapsed - usedTime);
+    // Check if we've accumulated enough time for at least one day
+    if (this.elapsedTimeAccumulator >= this.effectiveDayLength) {
+      // Calculate whole days elapsed
+      const daysElapsed = Math.floor(this.elapsedTimeAccumulator / this.effectiveDayLength);
+
+      // For debugging: log time advancement
+      console.debug(
+        `Time update: +${daysElapsed} days | ` +
+          `Accumulator before: ${(this.elapsedTimeAccumulator / this.effectiveDayLength).toFixed(
+            3
+          )} days | ` +
+          `Effective day length: ${this.effectiveDayLength}ms`
+      );
+
+      // Subtract used time from accumulator
+      this.elapsedTimeAccumulator -= daysElapsed * this.effectiveDayLength;
+
+      // For debugging: log remaining accumulator
+      console.debug(
+        `Remaining accumulator: ${(this.elapsedTimeAccumulator / this.effectiveDayLength).toFixed(
+          3
+        )} days | ` + `Total time processed: ${elapsed}ms`
+      );
+
+      // Advance the game time by the calculated days
+      this.advanceTime(daysElapsed);
     }
   }
 

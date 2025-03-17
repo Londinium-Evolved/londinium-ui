@@ -3,6 +3,9 @@ import { initializeConfigurationLoader } from '../../utils/procedural/configurat
 import { BuildingConfig } from '../../utils/procedural/buildingGenerator';
 import { BuildingType } from '../../state/BuildingState';
 
+// Define the input type locally for the test file
+type ConfigLoaderInput = Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
+
 // Mock fetch for testing
 global.fetch = jest.fn().mockImplementation(() =>
   Promise.resolve({

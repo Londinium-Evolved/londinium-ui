@@ -110,5 +110,6 @@ export interface ITimeState {
   currentYear: number;
   dayLength: number; // in milliseconds
   lastUpdateTime: number;
+  elapsedTimeAccumulator: number; // Accumulator for partial days
   rootStore: RootStore;
 }
