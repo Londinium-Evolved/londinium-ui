@@ -85,36 +85,36 @@ export class TimeState implements ITimeState {
   updateGameTime() {
     const now = Date.now();
     const elapsed = now - this.lastUpdateTime;
-    this.lastUpdateTime = now;
 
-    // Skip updates when elapsed time is zero
+    // Skip updates when elapsed time is zero or negative
     if (elapsed <= 0) return;
 
-    // Add elapsed time to accumulator
+    // Add to our accumulator
     this.elapsedTimeAccumulator += elapsed;
 
-    // Check if we've accumulated enough time for at least one day
-    if (this.elapsedTimeAccumulator >= this.effectiveDayLength) {
-      // Calculate whole days elapsed
-      const daysElapsed = Math.floor(this.elapsedTimeAccumulator / this.effectiveDayLength);
+    // Calculate how many whole days have passed
+    const fullDays = Math.floor(this.elapsedTimeAccumulator / this.effectiveDayLength);
 
-      // Update game time by the calculated days
-      this.advanceTime(daysElapsed);
+    if (fullDays > 0) {
+      // Advance game time by full days
+      this.advanceTime(fullDays);
 
-      // Subtract used time from accumulator, keeping only the remainder
-      this.elapsedTimeAccumulator -= daysElapsed * this.effectiveDayLength;
+      // Remove the processed time from accumulator, keeping only the remainder
+      this.elapsedTimeAccumulator -= fullDays * this.effectiveDayLength;
 
       if (process.env.NODE_ENV !== 'production') {
-        // For debugging: log time advancement
         console.debug(
-          `Time update: +${daysElapsed} days | ` +
-            `Remaining accumulator: ${(
+          `Time update: +${fullDays} days | ` +
+            `Remaining partial day: ${(
               this.elapsedTimeAccumulator / this.effectiveDayLength
-            ).toFixed(3)} days | ` +
+            ).toFixed(3)} | ` +
             `Effective day length: ${this.effectiveDayLength}ms`
         );
       }
     }
+
+    // Update the last time we processed
+    this.lastUpdateTime = now;
   }
 
   // Advance game time by the specified number of days
