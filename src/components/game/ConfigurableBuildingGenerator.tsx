@@ -270,9 +270,11 @@ const ConfigurableBuildingGenerator: React.FC = () => {
     'bath',
     'megacorp-tower',
     'residential-stack',
-    'market-hub',
+    'amphitheater',
+    'nano-fabricator',
+    'entertainment-hub',
     'data-center',
-    'entertainment-complex',
+    'entertainment-hub',
   ];
 
   const eras: Era[] = ['roman', 'cyberpunk'];
