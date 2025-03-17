@@ -13,6 +13,62 @@ export type Resource = CyberpunkResource;
 // Re-export Resources type for backward compatibility
 export type { Resources };
 
+// Define adjustment configs for era transition
+const productionAdjustments: Record<
+  keyof Resources,
+  { base: number; factor: number; op?: (base: number, progress: number) => number }
+> = {
+  food: { base: 2, factor: 0.5, op: (base, progress) => base * (1 - progress * 0.5) },
+  wood: { base: 1, factor: 0.7, op: (base, progress) => base * (1 - progress * 0.7) },
+  stone: { base: 0.5, factor: 0.6, op: (base, progress) => base * (1 - progress * 0.6) },
+  metal: { base: 0.2, factor: 2, op: (base, progress) => base * (1 + progress * 2) },
+  coal: { base: 0, factor: 2 }, // Handled separately using transition peak
+  electronics: { base: 0, factor: 1.5 }, // Handled separately using transition peak
+  energy: { base: 0, factor: 3 },
+  cyberneticComponents: { base: 0, factor: 0.5 },
+  data: { base: 0, factor: 2 },
+};
+
+const consumptionAdjustments: Record<
+  keyof Resources,
+  { base: number; factor: number; op?: (base: number, progress: number) => number }
+> = {
+  food: { base: 1, factor: 0, op: () => 1 }, // Always 1
+  wood: { base: 0.5, factor: 0.8, op: (base, progress) => base * (1 - progress * 0.8) },
+  stone: { base: 0, factor: 0.1, op: (_, progress) => progress * 0.1 },
+  metal: { base: 0, factor: 0.5, op: (_, progress) => progress * 0.5 },
+  coal: { base: 0, factor: 1.5 }, // Handled separately using transition peak
+  electronics: { base: 0, factor: 1.2 }, // Handled separately using transition peak
+  energy: { base: 0, factor: 2.5, op: (_, progress) => progress * 2.5 },
+  cyberneticComponents: { base: 0, factor: 0.3, op: (_, progress) => progress * 0.3 },
+  data: { base: 0, factor: 1.5, op: (_, progress) => progress * 1.5 },
+};
+
+// Helper function to update rates based on config
+function updateRates<T extends keyof Resources>(
+  rates: Partial<Resources>,
+  config: Record<
+    T,
+    { base: number; factor: number; op?: (base: number, progress: number) => number }
+  >,
+  progress: number,
+  defaultOp?: (resource: T, base: number, factor: number, progress: number) => number
+) {
+  Object.keys(config).forEach((key) => {
+    const resource = key as T;
+    if (config[resource].op) {
+      rates[resource] = config[resource].op!(config[resource].base, progress);
+    } else if (defaultOp) {
+      rates[resource] = defaultOp(
+        resource,
+        config[resource].base,
+        config[resource].factor,
+        progress
+      );
+    }
+  });
+}
+
 export class ResourceState implements IResourceState, BaseState {
   rootStore: RootStore;
 
@@ -149,37 +205,34 @@ export class ResourceState implements IResourceState, BaseState {
     const { gameState } = this.rootStore;
     if (!gameState) return;
 
-    // Adjust production rates based on era progression
-    // As we move toward cyberpunk era:
-    // - Roman resource production decreases
-    // - Cyberpunk resource production increases
-
-    // Roman resources production scales down with progress
-    this.productionRates.food = 2 * (1 - progress * 0.5); // Food still needed but less important
-    this.productionRates.wood = 1 * (1 - progress * 0.7); // Wood becomes less used
-    this.productionRates.stone = 0.5 * (1 - progress * 0.6); // Stone becomes less used
-    this.productionRates.metal = 0.2 * (1 + progress * 2); // Metal becomes more important
-
-    // Transitional resources increase then decrease
+    // Calculate transitional peak once
     const transitionPeak = Math.sin(progress * Math.PI); // Peaks at 0.5 progress
-    this.productionRates.coal = transitionPeak * 2;
-    this.productionRates.electronics = transitionPeak * 1.5;
 
-    // Cyberpunk resources scale up with progress
-    this.productionRates.energy = 0 + progress * 3;
-    this.productionRates.cyberneticComponents = 0 + progress * 0.5;
-    this.productionRates.data = 0 + progress * 2;
+    // Update Roman and general production rates
+    updateRates(this.productionRates, productionAdjustments, progress);
 
-    // Also adjust consumption rates
-    this.consumptionRates.food = 1; // Always needed
-    this.consumptionRates.wood = 0.5 * (1 - progress * 0.8);
-    this.consumptionRates.stone = 0 + progress * 0.1; // Small maintenance needs
-    this.consumptionRates.metal = 0 + progress * 0.5;
-    this.consumptionRates.coal = transitionPeak * 1.5;
-    this.consumptionRates.electronics = transitionPeak * 1.2;
-    this.consumptionRates.energy = 0 + progress * 2.5;
-    this.consumptionRates.cyberneticComponents = 0 + progress * 0.3;
-    this.consumptionRates.data = 0 + progress * 1.5;
+    // Apply special transitional effects
+    this.productionRates.coal = transitionPeak * productionAdjustments.coal.factor;
+    this.productionRates.electronics = transitionPeak * productionAdjustments.electronics.factor;
+
+    // Update cyberpunk production based on linear progress
+    updateRates(
+      this.productionRates,
+      {
+        energy: productionAdjustments.energy,
+        cyberneticComponents: productionAdjustments.cyberneticComponents,
+        data: productionAdjustments.data,
+      } as Record<keyof Resources, (typeof productionAdjustments)[keyof Resources]>,
+      progress,
+      (_, base, factor, p) => base + p * factor
+    );
+
+    // Update consumption rates
+    updateRates(this.consumptionRates, consumptionAdjustments, progress);
+
+    // Special transitional consumption rates
+    this.consumptionRates.coal = transitionPeak * consumptionAdjustments.coal.factor;
+    this.consumptionRates.electronics = transitionPeak * consumptionAdjustments.electronics.factor;
   }
 
   // Get resources for a specific era (for compatibility)

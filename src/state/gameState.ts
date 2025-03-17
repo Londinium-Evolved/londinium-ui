@@ -1,11 +1,11 @@
 import { makeAutoObservable, computed } from 'mobx';
 import { RootStore } from './RootStore';
-import { Era, IGameState } from './types';
+import { Era, IGameState, BaseState } from './types';
 
 // Re-export Era type for backward compatibility
 export type { Era };
 
-export class GameState implements IGameState {
+export class GameState implements IGameState, BaseState {
   rootStore: RootStore;
 
   // Era tracking
@@ -145,5 +145,10 @@ export class GameState implements IGameState {
     if (resourceState) {
       resourceState.applyEraTransition(this.eraProgress);
     }
+  }
+
+  // Cleanup when the store is no longer needed
+  dispose(): void {
+    // Add cleanup logic if needed
   }
 }
