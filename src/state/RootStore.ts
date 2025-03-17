@@ -30,6 +30,24 @@ export class RootStore {
   // Reset the entire game state
   reset() {
     console.log('Resetting game state...');
+
+    // Dispose previous instances if they have a dispose method
+    if (this.gameState && typeof this.gameState.dispose === 'function') {
+      this.gameState.dispose();
+    }
+    if (this.buildingState && typeof this.buildingState.dispose === 'function') {
+      this.buildingState.dispose();
+    }
+    if (this.resourceState && typeof this.resourceState.dispose === 'function') {
+      this.resourceState.dispose();
+    }
+    if (this.citizenState && typeof this.citizenState.dispose === 'function') {
+      this.citizenState.dispose();
+    }
+    if (this.timeState && typeof this.timeState.dispose === 'function') {
+      this.timeState.dispose();
+    }
+
     // Re-create all stores
     this.gameState = new GameState(this);
     this.buildingState = new BuildingState(this);
