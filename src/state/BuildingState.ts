@@ -1,8 +1,8 @@
 import { makeAutoObservable, computed } from 'mobx';
-import { v4 as uuidv4 } from 'uuid';
 import { RootStore } from './RootStore';
 import { Era } from './types';
 import { Building, BuildingType, IBuildingState, BaseState } from './types';
+import { ROMAN_BUILDING_TYPES, generateBuildingId } from '../config/buildingConfig';
 
 // Re-export types for backward compatibility
 export type { Building, BuildingType };
@@ -58,7 +58,8 @@ export class BuildingState implements IBuildingState, BaseState {
     rotation: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 },
     scale: { x: number; y: number; z: number } = { x: 1, y: 1, z: 1 }
   ) {
-    const id = uuidv4();
+    // Use the consistent ID generation utility
+    const id = generateBuildingId();
 
     const building: Building = {
       id,
@@ -143,19 +144,10 @@ export class BuildingState implements IBuildingState, BaseState {
   // Get buildings by era (for compatibility with existing code)
   getBuildingsByEra(era: Era) {
     return Object.values(this.buildings).filter((building) => {
-      // Roman building types
-      const romanTypes: BuildingType[] = [
-        'domus',
-        'insula',
-        'temple',
-        'forum',
-        'bath',
-        'amphitheater',
-      ];
-
+      // Use the imported Roman building types from configuration
       return era === 'roman'
-        ? romanTypes.includes(building.type)
-        : !romanTypes.includes(building.type);
+        ? ROMAN_BUILDING_TYPES.includes(building.type)
+        : !ROMAN_BUILDING_TYPES.includes(building.type);
     });
   }
 
