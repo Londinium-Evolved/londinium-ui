@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 import { fromArrayBuffer } from 'geotiff';
-import { 
-  GeologicalFeature, 
-  Resolution, 
-  TerrainAdjustment, 
-  ROMAN_ERA_ADJUSTMENTS, 
+import {
+  GeologicalFeature,
+  Resolution,
+  ROMAN_ERA_ADJUSTMENTS,
   CYBERPUNK_ERA_ADJUSTMENTS,
-  MODERN_INFRASTRUCTURE_MASK 
+  MODERN_INFRASTRUCTURE_MASK,
 } from './types';
 import { Era } from '../../state/types';
 
@@ -25,11 +24,11 @@ export class LIDARTerrainProcessor {
     // Initialize the WebWorker if supported
     if (typeof Worker !== 'undefined') {
       this.worker = new Worker(new URL('./terrainWorker.ts', import.meta.url), { type: 'module' });
-      
+
       // Set up message handling from worker
       this.worker.onmessage = (event) => {
         const { type, data } = event.data;
-        
+
         if (type === 'error') {
           console.error('Worker error:', data);
         } else if (type === 'result') {
@@ -53,57 +52,76 @@ export class LIDARTerrainProcessor {
   async processLIDARData(tiffData: ArrayBuffer, targetResolution: Resolution): Promise<void> {
     try {
       this.isProcessing = true;
-      
+
       // If we have a worker, offload the processing
       if (this.worker) {
-        this.worker.postMessage({
-          type: 'process_tiff',
-          data: {
-            tiffData,
-            targetResolution
-          }
-        }, [tiffData]); // Transfer the buffer for efficiency
-        
-        // Wait for the worker to finish (this would be improved with proper async handling)
+        this.worker.postMessage(
+          {
+            type: 'process_tiff',
+            data: {
+              tiffData,
+              targetResolution,
+            },
+          },
+          [tiffData]
+        ); // Transfer the buffer for efficiency
+
+        // Wait for the worker to finish using a one-time event listener
         return new Promise((resolve, reject) => {
-          const checkInterval = setInterval(() => {
-            if (!this.isProcessing) {
-              clearInterval(checkInterval);
-              if (this.heightmapData) {
+          const messageHandler = (event: MessageEvent) => {
+            const { type, data } = event.data;
+
+            if (type === 'process_tiff_done') {
+              this.isProcessing = false;
+              if (data.heightmapData) {
+                this.heightmapData = new Float32Array(data.heightmapData);
+                this.resolution = targetResolution;
                 resolve();
               } else {
                 reject(new Error('Processing failed'));
               }
+              this.worker?.removeEventListener('message', messageHandler);
+            } else if (type === 'error') {
+              this.isProcessing = false;
+              reject(new Error(data));
+              this.worker?.removeEventListener('message', messageHandler);
             }
-          }, 100);
+          };
+
+          // Add null check for TypeScript
+          if (this.worker) {
+            this.worker.addEventListener('message', messageHandler);
+          } else {
+            reject(new Error('Worker not available'));
+          }
         });
       }
-      
+
       // Fallback to processing on the main thread if no worker
       const tiff = await fromArrayBuffer(tiffData);
       const image = await tiff.getImage();
       const rasters = await image.readRasters();
-      
+
       // Extract and normalize elevation data from first band
       const originalData = rasters[0] as Uint16Array;
       const originalWidth = image.getWidth();
       const originalHeight = image.getHeight();
-      
+
       // Resample to target resolution using bilinear interpolation
       this.heightmapData = this.resampleHeightmap(
-        originalData, 
-        originalWidth, 
+        originalData,
+        originalWidth,
         originalHeight,
         targetResolution.width,
         targetResolution.height
       );
-      
+
       // Store resolution for later use
       this.resolution = targetResolution;
-      
+
       // Process and identify key geological features
       this.identifyGeologicalFeatures();
-      
+
       this.isProcessing = false;
     } catch (error) {
       this.isProcessing = false;
@@ -111,7 +129,7 @@ export class LIDARTerrainProcessor {
       throw new Error('Terrain generation failed');
     }
   }
-  
+
   /**
    * Apply historical adjustments to the terrain based on era
    * @param era The game era to adjust terrain for
@@ -120,11 +138,11 @@ export class LIDARTerrainProcessor {
     if (!this.heightmapData) {
       throw new Error('No heightmap data available for adjustment');
     }
-    
+
     const adjustments = era === 'roman' ? ROMAN_ERA_ADJUSTMENTS : CYBERPUNK_ERA_ADJUSTMENTS;
-    
+
     // Process each adjustment
-    adjustments.forEach(adjustment => {
+    adjustments.forEach((adjustment) => {
       switch (adjustment.type) {
         case 'river':
           this.adjustRiverWidth(adjustment.name, adjustment.factor);
@@ -140,13 +158,13 @@ export class LIDARTerrainProcessor {
           console.warn(`Unknown adjustment type: ${adjustment.type}`);
       }
     });
-    
+
     // Additional era-specific adjustments
     if (era === 'roman') {
       this.restoreHistoricalElevations();
     }
   }
-  
+
   /**
    * Create Three.js geometry from the processed heightmap
    * @param segmentSize Size of each segment in the plane geometry
@@ -156,40 +174,40 @@ export class LIDARTerrainProcessor {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) {
       throw new Error('No heightmap data available for geometry creation');
     }
-    
+
     // Create a plane geometry with the appropriate dimensions
     const geometry = new THREE.PlaneGeometry(
-      this.resolution.width, 
+      this.resolution.width,
       this.resolution.height,
       this.resolution.width / segmentSize,
       this.resolution.height / segmentSize
     );
-    
+
     // Apply heightmap to geometry vertices
     const positions = geometry.attributes.position.array;
     for (let i = 0; i < positions.length / 3; i++) {
       // Extract the x,y coordinates from the geometry
       const x = Math.floor(positions[i * 3] + this.resolution.width / 2);
       const y = Math.floor(positions[i * 3 + 1] + this.resolution.height / 2);
-      
+
       // Clamp to valid coordinates
       const clampedX = Math.max(0, Math.min(this.resolution.width - 1, x));
       const clampedY = Math.max(0, Math.min(this.resolution.height - 1, y));
-      
+
       // Calculate the height from the heightmap
       const heightIndex = clampedY * this.resolution.width + clampedX;
       const height = this.heightmapData[heightIndex];
-      
+
       // Apply the height to the geometry
       positions[i * 3 + 2] = height;
     }
-    
+
     // Update normals
     geometry.computeVertexNormals();
-    
+
     return geometry;
   }
-  
+
   /**
    * Generate a normal map texture from the heightmap
    * @returns THREE.DataTexture containing normal map data
@@ -198,7 +216,7 @@ export class LIDARTerrainProcessor {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) {
       throw new Error('No heightmap data available for normal map generation');
     }
-    
+
     // If we have a worker, use it to generate the normal map
     if (this.worker) {
       this.worker.postMessage({
@@ -206,36 +224,41 @@ export class LIDARTerrainProcessor {
         data: {
           heightmapData: this.heightmapData,
           width: this.resolution.width,
-          height: this.resolution.height
-        }
+          height: this.resolution.height,
+        },
       });
-      
+
       // Note: This would be improved with proper async handling
       // For now, we'll generate on the main thread
     }
-    
+
     // Generate normal map on the main thread
     const normalMapData = new Uint8Array(this.resolution.width * this.resolution.height * 4);
-    
+
     // For each pixel in the heightmap
     for (let y = 0; y < this.resolution.height; y++) {
       for (let x = 0; x < this.resolution.width; x++) {
-        const index = (y * this.resolution.width + x);
+        const index = y * this.resolution.width + x;
         const normalIndex = index * 4;
-        
+
         // Get heights of neighboring pixels
         const left = x > 0 ? this.heightmapData[index - 1] : this.heightmapData[index];
-        const right = x < this.resolution.width - 1 ? this.heightmapData[index + 1] : this.heightmapData[index];
-        const up = y > 0 ? this.heightmapData[index - this.resolution.width] : this.heightmapData[index];
-        const down = y < this.resolution.height - 1 ? this.heightmapData[index + this.resolution.width] : this.heightmapData[index];
-        
+        const right =
+          x < this.resolution.width - 1 ? this.heightmapData[index + 1] : this.heightmapData[index];
+        const up =
+          y > 0 ? this.heightmapData[index - this.resolution.width] : this.heightmapData[index];
+        const down =
+          y < this.resolution.height - 1
+            ? this.heightmapData[index + this.resolution.width]
+            : this.heightmapData[index];
+
         // Calculate normal using central differences
         const dzdx = (right - left) * 2.0;
         const dzdy = (down - up) * 2.0;
-        
+
         // Create and normalize the normal vector
         const normal = new THREE.Vector3(-dzdx, -dzdy, 8.0).normalize();
-        
+
         // Pack into RGB format (0-255)
         normalMapData[normalIndex] = Math.floor((normal.x * 0.5 + 0.5) * 255);
         normalMapData[normalIndex + 1] = Math.floor((normal.y * 0.5 + 0.5) * 255);
@@ -243,7 +266,7 @@ export class LIDARTerrainProcessor {
         normalMapData[normalIndex + 3] = 255; // Alpha channel
       }
     }
-    
+
     // Create a Three.js data texture
     const normalMap = new THREE.DataTexture(
       normalMapData,
@@ -252,10 +275,10 @@ export class LIDARTerrainProcessor {
       THREE.RGBAFormat
     );
     normalMap.needsUpdate = true;
-    
+
     return normalMap;
   }
-  
+
   /**
    * Get the processed heightmap data
    * @returns The processed heightmap as Float32Array
@@ -263,7 +286,7 @@ export class LIDARTerrainProcessor {
   getHeightmapData(): Float32Array | null {
     return this.heightmapData;
   }
-  
+
   /**
    * Get the current resolution of the heightmap
    * @returns Resolution object with width and height
@@ -271,7 +294,7 @@ export class LIDARTerrainProcessor {
   getResolution(): Resolution {
     return this.resolution;
   }
-  
+
   /**
    * Get identified geological features
    * @returns Map of geological features
@@ -279,7 +302,7 @@ export class LIDARTerrainProcessor {
   getGeologicalFeatures(): Map<string, GeologicalFeature> {
     return this.geologicalFeatures;
   }
-  
+
   /**
    * Clean up resources when no longer needed
    */
@@ -288,138 +311,139 @@ export class LIDARTerrainProcessor {
       this.worker.terminate();
       this.worker = null;
     }
-    
+
     this.heightmapData = null;
     this.geologicalFeatures.clear();
   }
-  
+
   // ------------------------
   // Private helper methods
   // ------------------------
-  
+
   /**
    * Resample heightmap data to a new resolution using bilinear interpolation
    * @private
    */
   private resampleHeightmap(
-    originalData: Uint16Array, 
-    originalWidth: number, 
+    originalData: Uint16Array,
+    originalWidth: number,
     originalHeight: number,
     targetWidth: number,
     targetHeight: number
   ): Float32Array {
     const result = new Float32Array(targetWidth * targetHeight);
-    
+
     // Calculate scaling factors
     const xScale = originalWidth / targetWidth;
     const yScale = originalHeight / targetHeight;
-    
+
     // For each pixel in the target heightmap
     for (let y = 0; y < targetHeight; y++) {
       for (let x = 0; x < targetWidth; x++) {
         const targetIndex = y * targetWidth + x;
-        
+
         // Calculate corresponding position in the original heightmap
         const origX = x * xScale;
         const origY = y * yScale;
-        
+
         // Calculate integer positions for bilinear interpolation
         const x0 = Math.floor(origX);
         const y0 = Math.floor(origY);
         const x1 = Math.min(x0 + 1, originalWidth - 1);
         const y1 = Math.min(y0 + 1, originalHeight - 1);
-        
+
         // Calculate fractional parts
         const xFrac = origX - x0;
         const yFrac = origY - y0;
-        
+
         // Get values at the four corners
         const val00 = originalData[y0 * originalWidth + x0];
         const val01 = originalData[y0 * originalWidth + x1];
         const val10 = originalData[y1 * originalWidth + x0];
         const val11 = originalData[y1 * originalWidth + x1];
-        
+
         // Handle NoData values (usually indicated by very large values)
         const useVal00 = val00 < 32768 ? val00 : 0;
         const useVal01 = val01 < 32768 ? val01 : 0;
         const useVal10 = val10 < 32768 ? val10 : 0;
         const useVal11 = val11 < 32768 ? val11 : 0;
-        
+
         // Perform bilinear interpolation
         const top = useVal00 * (1 - xFrac) + useVal01 * xFrac;
         const bottom = useVal10 * (1 - xFrac) + useVal11 * xFrac;
-        let value = top * (1 - yFrac) + bottom * yFrac;
-        
+        const value = top * (1 - yFrac) + bottom * yFrac;
+
         // Normalize the height data to a reasonable range
         // This might need adjustment based on the actual data
         result[targetIndex] = value / 100; // Scale to reasonable values for Three.js
       }
     }
-    
+
     return result;
   }
-  
+
   /**
    * Identify geological features in the heightmap
    * @private
    */
   private identifyGeologicalFeatures(): void {
     if (!this.heightmapData) return;
-    
+
     // Simple thresholding approach for feature detection
     // For a real implementation, more sophisticated algorithms would be used
-    
+
     // Look for river valleys (lowest points) - simplified example
     this.detectRivers();
-    
+
     // Detect hills (highest points)
     this.detectHills();
   }
-  
+
   /**
    * Detect rivers in the heightmap using simple thresholding
    * @private
    */
   private detectRivers(): void {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) return;
-    
-    // For a real implementation, this would use more sophisticated 
+
+    // For a real implementation, this would use more sophisticated
     // water flow simulation and analysis. This is simplified.
-    
+
     // Find low areas that form connected paths
     const visited = new Set<number>();
     const lowThreshold = this.calculateHeightThreshold(0.15); // Bottom 15% of heights
-    
+
     for (let y = 0; y < this.resolution.height; y++) {
       for (let x = 0; x < this.resolution.width; x++) {
         const index = y * this.resolution.width + x;
-        
+
         if (this.heightmapData[index] <= lowThreshold && !visited.has(index)) {
           // Found a potential river point - flood fill to find connected points
           const riverPoints = this.floodFillLowAreas(x, y, lowThreshold, visited);
-          
+
           // If we have enough connected points, it might be a river
-          if (riverPoints.length > 50) { // Arbitrary threshold
+          if (riverPoints.length > 50) {
+            // Arbitrary threshold
             // Calculate the bounding box
-            const xs = riverPoints.map(p => p.x);
-            const ys = riverPoints.map(p => p.y);
-            
+            const xs = riverPoints.map((p) => p.x);
+            const ys = riverPoints.map((p) => p.y);
+
             const minX = Math.min(...xs);
             const maxX = Math.max(...xs);
             const minY = Math.min(...ys);
             const maxY = Math.max(...ys);
-            
+
             // Determine if it's likely to be the Thames or another river
             // This is an oversimplification - real detection would be more complex
             let riverName = 'unknown_river';
-            
+
             // Check if it spans a large portion of the map width
-            if ((maxX - minX) > this.resolution.width * 0.5) {
+            if (maxX - minX > this.resolution.width * 0.5) {
               riverName = 'thames';
-            } else if ((maxX - minX) > this.resolution.width * 0.2) {
+            } else if (maxX - minX > this.resolution.width * 0.2) {
               riverName = 'walbrook';
             }
-            
+
             // Add to geological features
             this.geologicalFeatures.set(riverName, {
               name: riverName,
@@ -427,197 +451,216 @@ export class LIDARTerrainProcessor {
               bounds: { minX, minY, maxX, maxY },
               metadata: {
                 pointCount: riverPoints.length,
-                averageDepth: riverPoints.reduce((sum, p) => sum + this.heightmapData![p.y * this.resolution.width + p.x], 0) / riverPoints.length
-              }
+                averageDepth:
+                  riverPoints.reduce(
+                    (sum, p) => sum + this.heightmapData![p.y * this.resolution.width + p.x],
+                    0
+                  ) / riverPoints.length,
+              },
             });
           }
         }
       }
     }
   }
-  
+
   /**
    * Detect hills and high points in the heightmap
    * @private
    */
   private detectHills(): void {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) return;
-    
+
     // Find high areas
     const highThreshold = this.calculateHeightThreshold(0.85); // Top 15% of heights
     const visited = new Set<number>();
-    
+
     for (let y = 0; y < this.resolution.height; y++) {
       for (let x = 0; x < this.resolution.width; x++) {
         const index = y * this.resolution.width + x;
-        
+
         if (this.heightmapData[index] >= highThreshold && !visited.has(index)) {
           // Found a potential hill point - flood fill to find connected high points
           const hillPoints = this.floodFillHighAreas(x, y, highThreshold, visited);
-          
+
           // If we have enough connected points, it might be a hill
-          if (hillPoints.length > 20) { // Arbitrary threshold
+          if (hillPoints.length > 20) {
+            // Arbitrary threshold
             // Calculate the bounding box
-            const xs = hillPoints.map(p => p.x);
-            const ys = hillPoints.map(p => p.y);
-            
+            const xs = hillPoints.map((p) => p.x);
+            const ys = hillPoints.map((p) => p.y);
+
             const minX = Math.min(...xs);
             const maxX = Math.max(...xs);
             const minY = Math.min(...ys);
             const maxY = Math.max(...ys);
-            
+
             // Add to geological features - simplistic naming
             const hillName = `hill_${this.geologicalFeatures.size}`;
-            
+
             this.geologicalFeatures.set(hillName, {
               name: hillName,
               type: 'hill',
               bounds: { minX, minY, maxX, maxY },
               metadata: {
                 pointCount: hillPoints.length,
-                averageHeight: hillPoints.reduce((sum, p) => sum + this.heightmapData![p.y * this.resolution.width + p.x], 0) / hillPoints.length
-              }
+                averageHeight:
+                  hillPoints.reduce(
+                    (sum, p) => sum + this.heightmapData![p.y * this.resolution.width + p.x],
+                    0
+                  ) / hillPoints.length,
+              },
             });
           }
         }
       }
     }
   }
-  
+
   /**
    * Calculate a height threshold based on percentile
    * @private
    */
   private calculateHeightThreshold(percentile: number): number {
     if (!this.heightmapData || this.heightmapData.length === 0) return 0;
-    
+
     // Copy data to avoid modifying original
     const sortedHeights = [...this.heightmapData].sort((a, b) => a - b);
     const index = Math.floor(sortedHeights.length * percentile);
     return sortedHeights[index];
   }
-  
+
   /**
    * Flood fill algorithm to find connected low areas (potential rivers)
    * @private
    */
-  private floodFillLowAreas(startX: number, startY: number, threshold: number, visited: Set<number>): Array<{x: number, y: number}> {
+  private floodFillLowAreas(
+    startX: number,
+    startY: number,
+    threshold: number,
+    visited: Set<number>
+  ): Array<{ x: number; y: number }> {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) return [];
-    
-    const result: Array<{x: number, y: number}> = [];
-    const queue: Array<{x: number, y: number}> = [{x: startX, y: startY}];
-    
+
+    const result: Array<{ x: number; y: number }> = [];
+    const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
+
     while (queue.length > 0) {
-      const {x, y} = queue.shift()!;
+      const { x, y } = queue.shift()!;
       const index = y * this.resolution.width + x;
-      
+
       if (visited.has(index)) continue;
-      
+
       // Mark as visited
       visited.add(index);
-      
+
       // Check if this is a low point
       if (this.heightmapData[index] <= threshold) {
-        result.push({x, y});
-        
+        result.push({ x, y });
+
         // Add adjacent points to queue
         const directions = [
-          {dx: -1, dy: 0}, // Left
-          {dx: 1, dy: 0},  // Right
-          {dx: 0, dy: -1}, // Up
-          {dx: 0, dy: 1}   // Down
+          { dx: -1, dy: 0 }, // Left
+          { dx: 1, dy: 0 }, // Right
+          { dx: 0, dy: -1 }, // Up
+          { dx: 0, dy: 1 }, // Down
         ];
-        
-        for (const {dx, dy} of directions) {
+
+        for (const { dx, dy } of directions) {
           const nx = x + dx;
           const ny = y + dy;
-          
+
           // Check if within bounds
           if (nx >= 0 && nx < this.resolution.width && ny >= 0 && ny < this.resolution.height) {
             const neighborIndex = ny * this.resolution.width + nx;
             if (!visited.has(neighborIndex)) {
-              queue.push({x: nx, y: ny});
+              queue.push({ x: nx, y: ny });
             }
           }
         }
       }
     }
-    
+
     return result;
   }
-  
+
   /**
    * Flood fill algorithm to find connected high areas (potential hills)
    * @private
    */
-  private floodFillHighAreas(startX: number, startY: number, threshold: number, visited: Set<number>): Array<{x: number, y: number}> {
+  private floodFillHighAreas(
+    startX: number,
+    startY: number,
+    threshold: number,
+    visited: Set<number>
+  ): Array<{ x: number; y: number }> {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) return [];
-    
-    const result: Array<{x: number, y: number}> = [];
-    const queue: Array<{x: number, y: number}> = [{x: startX, y: startY}];
-    
+
+    const result: Array<{ x: number; y: number }> = [];
+    const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
+
     while (queue.length > 0) {
-      const {x, y} = queue.shift()!;
+      const { x, y } = queue.shift()!;
       const index = y * this.resolution.width + x;
-      
+
       if (visited.has(index)) continue;
-      
+
       // Mark as visited
       visited.add(index);
-      
+
       // Check if this is a high point
       if (this.heightmapData[index] >= threshold) {
-        result.push({x, y});
-        
+        result.push({ x, y });
+
         // Add adjacent points to queue
         const directions = [
-          {dx: -1, dy: 0}, // Left
-          {dx: 1, dy: 0},  // Right
-          {dx: 0, dy: -1}, // Up
-          {dx: 0, dy: 1}   // Down
+          { dx: -1, dy: 0 }, // Left
+          { dx: 1, dy: 0 }, // Right
+          { dx: 0, dy: -1 }, // Up
+          { dx: 0, dy: 1 }, // Down
         ];
-        
-        for (const {dx, dy} of directions) {
+
+        for (const { dx, dy } of directions) {
           const nx = x + dx;
           const ny = y + dy;
-          
+
           // Check if within bounds
           if (nx >= 0 && nx < this.resolution.width && ny >= 0 && ny < this.resolution.height) {
             const neighborIndex = ny * this.resolution.width + nx;
             if (!visited.has(neighborIndex)) {
-              queue.push({x: nx, y: ny});
+              queue.push({ x: nx, y: ny });
             }
           }
         }
       }
     }
-    
+
     return result;
   }
-  
+
   /**
    * Adjust river width based on historical data
    * @private
    */
   private adjustRiverWidth(riverName: string, widthFactor: number): void {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) return;
-    
+
     // Find the river feature
     const riverFeature = this.geologicalFeatures.get(riverName);
     if (!riverFeature) {
       console.warn(`River feature '${riverName}' not found`);
       return;
     }
-    
+
     const { bounds } = riverFeature;
-    
+
     // For this simplified example, we'll just adjust the depth of river points
     // by scaling their elevation difference from the average height
-    
+
     // Calculate the average height in the region
     let sum = 0;
     let count = 0;
-    
+
     for (let y = bounds.minY; y <= bounds.maxY; y++) {
       for (let x = bounds.minX; x <= bounds.maxX; x++) {
         if (x >= 0 && x < this.resolution.width && y >= 0 && y < this.resolution.height) {
@@ -627,49 +670,51 @@ export class LIDARTerrainProcessor {
         }
       }
     }
-    
+
     const avgHeight = count > 0 ? sum / count : 0;
-    
+
     // Adjust river points
     for (let y = bounds.minY; y <= bounds.maxY; y++) {
       for (let x = bounds.minX; x <= bounds.maxX; x++) {
         if (x >= 0 && x < this.resolution.width && y >= 0 && y < this.resolution.height) {
           const index = y * this.resolution.width + x;
           const height = this.heightmapData[index];
-          
+
           // If it's a low point (likely part of the river)
           if (height < avgHeight) {
             // Calculate distance from center of river
             // This is a simplification - real implementation would be more sophisticated
             const centerX = (bounds.minX + bounds.maxX) / 2;
             const centerY = (bounds.minY + bounds.maxY) / 2;
-            
-            const distFromCenter = Math.sqrt(
-              Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
-            );
-            
+
+            const distFromCenter = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+
             // Get the river width (half the average of width and height)
             const riverWidth = (bounds.maxX - bounds.minX + bounds.maxY - bounds.minY) / 4;
-            
+
             // If we're reducing width (widthFactor < 1), only adjust points closer to edge
             // If we're increasing width (widthFactor > 1), affect more points
-            if ((widthFactor < 1 && distFromCenter > riverWidth * widthFactor) || 
-                (widthFactor >= 1 && distFromCenter <= riverWidth * widthFactor)) {
-              
+            if (
+              (widthFactor < 1 && distFromCenter > riverWidth * widthFactor) ||
+              (widthFactor >= 1 && distFromCenter <= riverWidth * widthFactor)
+            ) {
               // Adjustment factor based on distance
               let adjustmentFactor;
               if (widthFactor < 1) {
                 // When narrowing the river, raise the edges
-                adjustmentFactor = (distFromCenter - riverWidth * widthFactor) / (riverWidth - riverWidth * widthFactor);
+                adjustmentFactor =
+                  (distFromCenter - riverWidth * widthFactor) /
+                  (riverWidth - riverWidth * widthFactor);
                 adjustmentFactor = Math.min(1, Math.max(0, adjustmentFactor)); // Clamp to 0-1
-                
+
                 // Gradually raise the elevation back toward the average height
-                this.heightmapData[index] = height * (1 - adjustmentFactor) + avgHeight * adjustmentFactor;
+                this.heightmapData[index] =
+                  height * (1 - adjustmentFactor) + avgHeight * adjustmentFactor;
               } else {
                 // When widening the river, lower areas near the edge
-                adjustmentFactor = 1 - (distFromCenter / (riverWidth * widthFactor));
+                adjustmentFactor = 1 - distFromCenter / (riverWidth * widthFactor);
                 adjustmentFactor = Math.min(0.5, Math.max(0, adjustmentFactor)); // Clamp to 0-0.5
-                
+
                 // Decrease elevation for points near the edge
                 this.heightmapData[index] = height - (avgHeight - height) * adjustmentFactor;
               }
@@ -678,53 +723,56 @@ export class LIDARTerrainProcessor {
         }
       }
     }
-    
+
     // Update the river feature bounds
     const paddingFactor = widthFactor > 1 ? widthFactor : 1;
-    const widthPadding = (bounds.maxX - bounds.minX) * (paddingFactor - 1) / 2;
-    const heightPadding = (bounds.maxY - bounds.minY) * (paddingFactor - 1) / 2;
-    
+    const widthPadding = ((bounds.maxX - bounds.minX) * (paddingFactor - 1)) / 2;
+    const heightPadding = ((bounds.maxY - bounds.minY) * (paddingFactor - 1)) / 2;
+
     riverFeature.bounds = {
       minX: Math.max(0, bounds.minX - widthPadding),
       minY: Math.max(0, bounds.minY - heightPadding),
       maxX: Math.min(this.resolution.width - 1, bounds.maxX + widthPadding),
-      maxY: Math.min(this.resolution.height - 1, bounds.maxY + heightPadding)
+      maxY: Math.min(this.resolution.height - 1, bounds.maxY + heightPadding),
     };
   }
-  
+
   /**
    * Apply elevation mask to specific areas
    * @private
    */
-  private applyElevationMask(mask: any, factor: number): void {
+  private applyElevationMask(mask: Record<string, unknown>, factor: number): void {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) return;
-    
+
     // This is a simplified placeholder implementation
     // In a real scenario, the mask would define specific regions to adjust
-    
+
     // For demonstration purposes only
     console.log(`Applied elevation mask with factor ${factor}`);
   }
-  
+
   /**
    * Apply elevation adjustment to a specific area
    * @private
    */
-  private applyElevationAdjustment(bounds: {minX: number, minY: number, maxX: number, maxY: number}, factor: number): void {
+  private applyElevationAdjustment(
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    factor: number
+  ): void {
     if (!this.heightmapData || !this.resolution.width || !this.resolution.height) return;
-    
+
     for (let y = bounds.minY; y <= bounds.maxY; y++) {
       for (let x = bounds.minX; x <= bounds.maxX; x++) {
         if (x >= 0 && x < this.resolution.width && y >= 0 && y < this.resolution.height) {
           const index = y * this.resolution.width + x;
-          
+
           // Scale elevation by the factor
           this.heightmapData[index] *= factor;
         }
       }
     }
   }
-  
+
   /**
    * Restore historical elevations for Roman-era terrain
    * @private
@@ -732,13 +780,13 @@ export class LIDARTerrainProcessor {
   private restoreHistoricalElevations(): void {
     // In a real implementation, this would use historical data sources
     // to restore specific topographical features known from archaeological records
-    
+
     // Example: Restore Ludgate Hill elevation
     const ludgateHill = this.geologicalFeatures.get('hill_0'); // Simplified, would match by location in real implementation
     if (ludgateHill) {
       this.applyElevationAdjustment(ludgateHill.bounds, 1.2); // Increase height by 20%
     }
-    
+
     // Example: Restore Cornhill elevation
     const cornhill = this.geologicalFeatures.get('hill_1'); // Simplified
     if (cornhill) {

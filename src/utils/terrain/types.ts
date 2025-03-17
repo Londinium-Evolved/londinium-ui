@@ -14,7 +14,7 @@ export interface GeologicalFeature {
     maxX: number;
     maxY: number;
   };
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface TerrainSettings {
@@ -43,11 +43,11 @@ export const ROMAN_ERA_ADJUSTMENTS: TerrainAdjustment[] = [
   { type: 'river', name: 'fleet', factor: 1.3 }, // Fleet was wider and navigable
   { type: 'elevation', name: 'modern_infrastructure', factor: 0.8 },
   { type: 'elevation', name: 'ludgate_hill', factor: 1.2 }, // More prominent
-  { type: 'elevation', name: 'cornhill', factor: 1.15 } // More prominent
+  { type: 'elevation', name: 'cornhill', factor: 1.15 }, // More prominent
 ];
 
 export const CYBERPUNK_ERA_ADJUSTMENTS: TerrainAdjustment[] = [
-  { type: 'elevation', name: 'megastructure_foundations', factor: 1.2 }
+  { type: 'elevation', name: 'megastructure_foundations', factor: 1.2 },
 ];
 
 // Mask data for various features (simplified for example)
@@ -66,10 +66,11 @@ export enum TerrainWorkerMessageType {
   APPLY_ADJUSTMENTS = 'apply_adjustments',
   GENERATE_NORMAL_MAP = 'generate_normal_map',
   RESULT = 'result',
-  ERROR = 'error'
+  PROCESS_TIFF_DONE = 'process_tiff_done',
+  ERROR = 'error',
 }
 
 export interface TerrainWorkerMessage {
   type: TerrainWorkerMessageType;
-  data: any;
+  data: unknown;
 }
