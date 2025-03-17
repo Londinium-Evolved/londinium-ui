@@ -242,24 +242,6 @@ const buildingConfigs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: 
         }),
       },
     },
-    'market-hub': {
-      roman: {
-        widthRange: [0, 0],
-        depthRange: [0, 0],
-        heightRange: [0, 0],
-        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-      },
-      cyberpunk: {
-        widthRange: [25, 30],
-        depthRange: [25, 30],
-        heightRange: [10, 12],
-        material: new THREE.MeshStandardMaterial({
-          color: '#323232',
-          emissive: '#ff9040',
-          emissiveIntensity: 0.2,
-        }),
-      },
-    },
     'data-center': {
       roman: {
         widthRange: [0, 0],
@@ -278,7 +260,7 @@ const buildingConfigs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: 
         }),
       },
     },
-    'entertainment-complex': {
+    'entertainment-hub': {
       roman: {
         widthRange: [0, 0],
         depthRange: [0, 0],
@@ -293,6 +275,38 @@ const buildingConfigs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: 
           color: '#2d1b30',
           emissive: '#ff40ff',
           emissiveIntensity: 0.3,
+        }),
+      },
+    },
+    amphitheater: {
+      roman: {
+        widthRange: [25, 35],
+        depthRange: [25, 35],
+        heightRange: [10, 15],
+        material: new THREE.MeshStandardMaterial({ color: '#e5d9c3' }),
+      },
+      cyberpunk: {
+        widthRange: [0, 0],
+        depthRange: [0, 0],
+        heightRange: [0, 0],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+    },
+    'nano-fabricator': {
+      roman: {
+        widthRange: [0, 0],
+        depthRange: [0, 0],
+        heightRange: [0, 0],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+      cyberpunk: {
+        widthRange: [15, 18],
+        depthRange: [15, 18],
+        heightRange: [10, 15],
+        material: new THREE.MeshStandardMaterial({
+          color: '#2a3b4c',
+          emissive: '#00ddaa',
+          emissiveIntensity: 0.4,
         }),
       },
     },
