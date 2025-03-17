@@ -60,9 +60,9 @@ const BuildingRenderer: React.FC<BuildingRendererProps> = ({ building }) => {
     }
 
     return generateBuildingGeometry({
-      position: building.position,
-      rotation: building.rotation,
-      scale: building.scale,
+      position: [building.position.x, building.position.y, building.position.z],
+      rotation: building.rotation.y,
+      scale: [building.scale.x, building.scale.y, building.scale.z],
       type: building.type,
       era: gameState.currentEra,
       seed: parseInt(building.id, 36), // Convert id to a numeric seed
@@ -90,9 +90,11 @@ const BuildingRenderer: React.FC<BuildingRendererProps> = ({ building }) => {
       {() => (
         <mesh
           ref={meshRef}
-          position={new THREE.Vector3(...building.position)}
-          rotation={new THREE.Euler(0, building.rotation, 0)}
-          scale={new THREE.Vector3(...building.scale)}>
+          position={
+            new THREE.Vector3(building.position.x, building.position.y, building.position.z)
+          }
+          rotation={new THREE.Euler(building.rotation.x, building.rotation.y, building.rotation.z)}
+          scale={new THREE.Vector3(building.scale.x, building.scale.y, building.scale.z)}>
           <primitive object={geometry} attach='geometry' />
           <primitive object={materials[0]} attach='material' />
         </mesh>
