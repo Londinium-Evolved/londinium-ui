@@ -479,4 +479,69 @@ describe('ConfigurationLoader', () => {
     expect(serialized.buildingTypes.domus.roman.widthRange).toEqual([1, 2]);
     expect(serialized.buildingTypes.domus.roman.material.color).toBeDefined();
   });
+
+  it('should handle invalid building types by falling back to defaults', () => {
+    // Spy on console.warn to verify warning is logged
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    const loader = initializeConfigurationLoader(defaultConfigs as ConfigLoaderInput);
+
+    // Use a type assertion to pass an invalid building type
+    const invalidType = 'invalid-building' as BuildingType;
+
+    // Ensure this doesn't throw an error
+    const config = loader.getConfiguration(invalidType, 'roman');
+
+    // Verify a warning was logged
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(`No configuration found for building type ${invalidType}`)
+    );
+
+    // Verify it returned the default config for the first available building type
+    expect(config).toBeDefined();
+    expect(config.widthRange).toBeDefined();
+    expect(config.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+
+    // Clean up spy
+    warnSpy.mockRestore();
+  });
+
+  it('should handle non-existent building types gracefully', () => {
+    const loader = initializeConfigurationLoader(defaultConfigs as ConfigLoaderInput);
+
+    // Create a custom object without all building types
+    const partialConfigs = {
+      domus: defaultConfigs.domus,
+      insula: defaultConfigs.insula,
+    } as unknown as ConfigLoaderInput;
+
+    // Override the internal configs with our partial set
+    // Using a type assertion to enable test access to private field
+    (loader as unknown as { configs: ConfigLoaderInput }).configs = partialConfigs;
+
+    // Try to get a building type that exists in defaults but not in our partial set
+    const config = loader.getConfiguration('temple', 'roman');
+
+    // Should fall back to default
+    expect(config).toBeDefined();
+    expect(config).toEqual(defaultConfigs.temple.roman);
+  });
+
+  it('should handle undefined or null building types', () => {
+    const loader = initializeConfigurationLoader(defaultConfigs as ConfigLoaderInput);
+
+    // Spy on console.warn
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    // @ts-expect-error - Deliberately passing undefined to test runtime behavior
+    expect(() => loader.getConfiguration(undefined, 'roman')).not.toThrow();
+
+    // @ts-expect-error - Deliberately passing null to test runtime behavior
+    expect(() => loader.getConfiguration(null, 'roman')).not.toThrow();
+
+    // Verify warnings were logged
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+
+    warnSpy.mockRestore();
+  });
 });
