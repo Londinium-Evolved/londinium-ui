@@ -1,6 +1,6 @@
 import { makeAutoObservable, computed } from 'mobx';
 import { RootStore } from './RootStore';
-import { Era, IResourceState, Resources } from './types';
+import { Era, IResourceState, Resources, BaseState } from './types';
 
 // Define resource types for different eras
 export type RomanResource = 'food' | 'wood' | 'stone' | 'metal';
@@ -13,7 +13,7 @@ export type Resource = CyberpunkResource;
 // Re-export Resources type for backward compatibility
 export type { Resources };
 
-export class ResourceState implements IResourceState {
+export class ResourceState implements IResourceState, BaseState {
   rootStore: RootStore;
 
   resources: Resources = {
@@ -189,5 +189,10 @@ export class ResourceState implements IResourceState {
     } else {
       return this.resourcesByEra.cyberpunk;
     }
+  }
+
+  // Cleanup when the store is no longer needed
+  dispose(): void {
+    // Add cleanup logic if needed
   }
 }

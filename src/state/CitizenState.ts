@@ -1,9 +1,9 @@
 import { makeAutoObservable, computed } from 'mobx';
 import { v4 as uuidv4 } from 'uuid';
 import { RootStore } from './RootStore';
-import { Citizen, ICitizenState } from './types';
+import { Citizen, ICitizenState, BaseState } from './types';
 
-export class CitizenState implements ICitizenState {
+export class CitizenState implements ICitizenState, BaseState {
   rootStore: RootStore;
   citizens: Record<string, Citizen> = {};
   unemployedCount: number = 0;
@@ -159,5 +159,10 @@ export class CitizenState implements ICitizenState {
 
     // Apply some inertia to happiness changes (can't change too rapidly)
     this.happiness = this.happiness * 0.8 + newHappiness * 0.2;
+  }
+
+  // Cleanup when the store is no longer needed
+  dispose(): void {
+    // Add cleanup logic if needed
   }
 }

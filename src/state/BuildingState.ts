@@ -2,12 +2,12 @@ import { makeAutoObservable, computed } from 'mobx';
 import { v4 as uuidv4 } from 'uuid';
 import { RootStore } from './RootStore';
 import { Era } from './types';
-import { Building, BuildingType, IBuildingState } from './types';
+import { Building, BuildingType, IBuildingState, BaseState } from './types';
 
 // Re-export types for backward compatibility
 export type { Building, BuildingType };
 
-export class BuildingState implements IBuildingState {
+export class BuildingState implements IBuildingState, BaseState {
   rootStore: RootStore;
   buildings: Record<string, Building> = {};
   selectedBuildingId: string | null = null;
@@ -161,5 +161,10 @@ export class BuildingState implements IBuildingState {
   // Get buildings by type (for compatibility with existing code)
   getBuildingsByType(type: BuildingType) {
     return Object.values(this.buildings).filter((b) => b.type === type);
+  }
+
+  // Cleanup when the store is no longer needed
+  dispose(): void {
+    // Add cleanup logic if needed
   }
 }

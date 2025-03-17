@@ -105,11 +105,23 @@ export interface ICitizenState {
   rootStore: RootStore;
 }
 
-export interface ITimeState {
+export interface BaseState {
+  dispose(): void;
+}
+
+export interface ITimeState extends BaseState {
   currentDay: number;
   currentYear: number;
-  dayLength: number; // in milliseconds
-  lastUpdateTime: number;
-  elapsedTimeAccumulator: number; // Accumulator for partial days
-  rootStore: RootStore;
+  dayLength: number;
+  paused: boolean;
+  speedMultiplier: number;
+
+  formattedDate: string;
+
+  setPaused(paused: boolean): void;
+  togglePause(): void;
+  setSpeedMultiplier(multiplier: number): void;
+  setDayLength(milliseconds: number): void;
+  startTimeLoop(): void;
+  stopTimeLoop(): void;
 }
