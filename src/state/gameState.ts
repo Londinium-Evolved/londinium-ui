@@ -34,15 +34,15 @@ export class GameState implements IGameState, BaseState {
     return 0.5; // Transitioning
   }
 
-  get isRomanEra() {
+  get isRomanEra(): boolean {
     return this.currentEra === 'roman';
   }
 
-  get isCyberpunkEra() {
+  get isCyberpunkEra(): boolean {
     return this.currentEra === 'cyberpunk';
   }
 
-  get isTransitioning() {
+  get isTransitioning(): boolean {
     return this.eraProgress > 0 && this.eraProgress < 1;
   }
 
@@ -55,13 +55,13 @@ export class GameState implements IGameState, BaseState {
 
     // Set progress based on era
     if (era === 'roman') {
-      this.setEraProgress(0);
+      this.eraProgress = 0;
     } else {
-      this.setEraProgress(1);
+      this.eraProgress = 1;
     }
 
     // Propagate era change to other stores
-    this.applyEraChangeToAllStores();
+    this.updateEraOnStores();
   }
 
   setEraProgress(progress: number) {
@@ -81,12 +81,12 @@ export class GameState implements IGameState, BaseState {
     }
 
     // Propagate era progress to other stores
-    this.applyEraProgressToAllStores();
+    this.updateEraOnStores();
   }
 
   setGameSpeed(speed: number) {
-    // Clamp speed between 0.5 and 3
-    this.gameSpeed = Math.max(0.5, Math.min(3, speed));
+    // Clamp speed between 0.25 and 3
+    this.gameSpeed = Math.max(0.25, Math.min(3, speed));
 
     // Update time state if available
     if (this.rootStore.timeState) {
@@ -107,41 +107,21 @@ export class GameState implements IGameState, BaseState {
     this.setPaused(!this.paused);
   }
 
-  // Apply era changes to all related stores
-  private applyEraChangeToAllStores() {
+  // Consolidated method to update all stores
+  private updateEraOnStores() {
     const { buildingState, resourceState, citizenState } = this.rootStore;
 
-    // Update building states for the new era
+    // Update building states
     if (buildingState) {
       buildingState.applyEraTransition(this.eraProgress);
     }
 
-    // Update citizen needs for the new era
+    // Update citizen needs
     if (citizenState) {
       citizenState.applyEraTransition(this.eraProgress);
     }
 
-    // Adjust resource production/consumption for the new era
-    if (resourceState) {
-      resourceState.applyEraTransition(this.eraProgress);
-    }
-  }
-
-  // Apply gradual era progress to all stores
-  private applyEraProgressToAllStores() {
-    const { buildingState, resourceState, citizenState } = this.rootStore;
-
-    // Update buildings
-    if (buildingState) {
-      buildingState.applyEraTransition(this.eraProgress);
-    }
-
-    // Update citizens
-    if (citizenState) {
-      citizenState.applyEraTransition(this.eraProgress);
-    }
-
-    // Update resources
+    // Adjust resource production/consumption
     if (resourceState) {
       resourceState.applyEraTransition(this.eraProgress);
     }
