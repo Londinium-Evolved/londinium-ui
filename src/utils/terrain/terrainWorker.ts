@@ -4,10 +4,10 @@
  */
 
 import { fromArrayBuffer } from 'geotiff';
-import { TerrainWorkerMessageType } from './types';
+import { TerrainWorkerMessageType, HEIGHT_SCALE, NODATA_VALUE } from './types';
 
-// Constants for processing
-const NODATA_VALUE = 32768;
+// No longer need the local constant as we're importing it
+// const NODATA_VALUE = 32768;
 
 self.onmessage = async (event) => {
   const { type, data } = event.data;
@@ -167,7 +167,7 @@ function resampleHeightmap(
       const value = top * (1 - yFrac) + bottom * yFrac;
 
       // Normalize the height data to a reasonable range
-      result[targetIndex] = value / 100; // Scale to reasonable values for Three.js
+      result[targetIndex] = value / HEIGHT_SCALE; // Scale to reasonable values for Three.js
     }
   }
 

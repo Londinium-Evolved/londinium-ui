@@ -1,5 +1,9 @@
 import { Era } from '../../state/types';
 
+// Constants for terrain processing
+export const HEIGHT_SCALE = 100; // Named constant for configurable height scaling
+export const NODATA_VALUE = 32768; // Indicates missing data in elevation models
+
 export interface Resolution {
   width: number;
   height: number;

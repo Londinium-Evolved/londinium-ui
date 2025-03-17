@@ -6,6 +6,8 @@ import {
   ROMAN_ERA_ADJUSTMENTS,
   CYBERPUNK_ERA_ADJUSTMENTS,
   MODERN_INFRASTRUCTURE_MASK,
+  HEIGHT_SCALE,
+  NODATA_VALUE,
 } from './types';
 import { Era } from '../../state/types';
 
@@ -363,10 +365,10 @@ export class LIDARTerrainProcessor {
         const val11 = originalData[y1 * originalWidth + x1];
 
         // Handle NoData values (usually indicated by very large values)
-        const useVal00 = val00 < 32768 ? val00 : 0;
-        const useVal01 = val01 < 32768 ? val01 : 0;
-        const useVal10 = val10 < 32768 ? val10 : 0;
-        const useVal11 = val11 < 32768 ? val11 : 0;
+        const useVal00 = val00 < NODATA_VALUE ? val00 : 0;
+        const useVal01 = val01 < NODATA_VALUE ? val01 : 0;
+        const useVal10 = val10 < NODATA_VALUE ? val10 : 0;
+        const useVal11 = val11 < NODATA_VALUE ? val11 : 0;
 
         // Perform bilinear interpolation
         const top = useVal00 * (1 - xFrac) + useVal01 * xFrac;
@@ -374,8 +376,7 @@ export class LIDARTerrainProcessor {
         const value = top * (1 - yFrac) + bottom * yFrac;
 
         // Normalize the height data to a reasonable range
-        // This might need adjustment based on the actual data
-        result[targetIndex] = value / 100; // Scale to reasonable values for Three.js
+        result[targetIndex] = value / HEIGHT_SCALE; // Scale to reasonable values for Three.js
       }
     }
 
