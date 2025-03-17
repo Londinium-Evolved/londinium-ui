@@ -34,17 +34,17 @@ function GameWorld() {
     <Canvas>
       <ambientLight intensity={0.5} />
       <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-      
-      <LIDARTerrain 
-        dataUrl="/path/to/lidar-data.tif"
+
+      <LIDARTerrain
+        dataUrl='/path/to/lidar-data.tif'
         settings={{
           resolution: { width: 1024, height: 1024 },
           segmentSize: 10,
           heightScale: 1.0,
-          era: 'roman'
+          era: 'roman',
         }}
       />
-      
+
       {/* Other game elements */}
     </Canvas>
   );
@@ -59,29 +59,23 @@ For more control over the processing pipeline, you can use the hook directly:
 import { useLIDARTerrain } from '../hooks/useLIDARTerrain';
 
 function CustomTerrain() {
-  const { 
-    isLoading, 
-    error, 
-    terrainGeometry, 
-    normalMap,
-    processor,
-    loadTerrain
-  } = useLIDARTerrain();
-  
+  const { isLoading, error, terrainGeometry, normalMap, processor, loadTerrain } =
+    useLIDARTerrain();
+
   // Custom loading logic
   useEffect(() => {
     fetch('/path/to/lidar-data.tif')
-      .then(response => response.arrayBuffer())
-      .then(data => {
+      .then((response) => response.arrayBuffer())
+      .then((data) => {
         loadTerrain(data, {
           resolution: { width: 1024, height: 1024 },
           segmentSize: 10,
           heightScale: 1.0,
-          era: 'roman'
+          era: 'roman',
         });
       });
   }, []);
-  
+
   // Custom rendering logic
   // ...
 }
@@ -90,6 +84,19 @@ function CustomTerrain() {
 ## Era Transitions
 
 The system supports transitions between eras (Roman to Cyberpunk) by modifying the terrain:
+
+- **Roman Era**: Narrower Thames, more prominent Walbrook stream, restored historical elevations
+- **Cyberpunk Era**: Modified terrain for megastructure foundations
+
+## Specifying Eras
+
+To specify the desired era in the settings, use the following format:
+
+```json
+{
+  "era": "roman" // or "cyberpunk"
+}
+```
 
 - **Roman Era**: Narrower Thames, more prominent Walbrook stream, restored historical elevations
 - **Cyberpunk Era**: Modified terrain for megastructure foundations
@@ -110,7 +117,7 @@ The terrain processing system particularly handles these important geographical 
 1. **Thames River**: Narrower and shallower in Roman times
 2. **Walbrook Stream**: A prominent feature in Roman London, now buried
 3. **Ludgate Hill**: Had greater prominence in Roman times
-4. **Cornhill**: One of the two hills of Roman Londinium
+4. **Cornhill**: One of the three hills of Roman Londinium
 5. **Fleet River**: Wider and navigable to Holborn in Roman times
 
 ## Implementation Notes
