@@ -13,60 +13,66 @@ export type Resource = CyberpunkResource;
 // Re-export Resources type for backward compatibility
 export type { Resources };
 
-// Define adjustment configs for era transition
-const productionAdjustments: Record<
-  keyof Resources,
-  { base: number; factor: number; op?: (base: number, progress: number) => number }
-> = {
-  food: { base: 2, factor: 0.5, op: (base, progress) => base * (1 - progress * 0.5) },
-  wood: { base: 1, factor: 0.7, op: (base, progress) => base * (1 - progress * 0.7) },
-  stone: { base: 0.5, factor: 0.6, op: (base, progress) => base * (1 - progress * 0.6) },
-  metal: { base: 0.2, factor: 2, op: (base, progress) => base * (1 + progress * 2) },
-  coal: { base: 0, factor: 2 }, // Handled separately using transition peak
-  electronics: { base: 0, factor: 1.5 }, // Handled separately using transition peak
-  energy: { base: 0, factor: 3 },
-  cyberneticComponents: { base: 0, factor: 0.5 },
-  data: { base: 0, factor: 2 },
+// Define a unified adjustment config type
+type AdjustmentConfig = {
+  base: number;
+  factor: number;
+  op?: (base: number, progress: number) => number;
 };
 
-const consumptionAdjustments: Record<
+// Unified adjustments for both production and consumption
+const adjustments: Record<
   keyof Resources,
-  { base: number; factor: number; op?: (base: number, progress: number) => number }
+  { production: AdjustmentConfig; consumption: AdjustmentConfig }
 > = {
-  food: { base: 1, factor: 0, op: () => 1 }, // Always 1
-  wood: { base: 0.5, factor: 0.8, op: (base, progress) => base * (1 - progress * 0.8) },
-  stone: { base: 0, factor: 0.1, op: (_, progress) => progress * 0.1 },
-  metal: { base: 0, factor: 0.5, op: (_, progress) => progress * 0.5 },
-  coal: { base: 0, factor: 1.5 }, // Handled separately using transition peak
-  electronics: { base: 0, factor: 1.2 }, // Handled separately using transition peak
-  energy: { base: 0, factor: 2.5, op: (_, progress) => progress * 2.5 },
-  cyberneticComponents: { base: 0, factor: 0.3, op: (_, progress) => progress * 0.3 },
-  data: { base: 0, factor: 1.5, op: (_, progress) => progress * 1.5 },
+  food: {
+    production: { base: 2, factor: 0.5, op: (base, progress) => base * (1 - progress * 0.5) },
+    consumption: { base: 1, factor: 0, op: () => 1 }, // Always 1
+  },
+  wood: {
+    production: { base: 1, factor: 0.7, op: (base, progress) => base * (1 - progress * 0.7) },
+    consumption: { base: 0.5, factor: 0.8, op: (base, progress) => base * (1 - progress * 0.8) },
+  },
+  stone: {
+    production: { base: 0.5, factor: 0.6, op: (base, progress) => base * (1 - progress * 0.6) },
+    consumption: { base: 0, factor: 0.1, op: (_, progress) => progress * 0.1 },
+  },
+  metal: {
+    production: { base: 0.2, factor: 2, op: (base, progress) => base * (1 + progress * 2) },
+    consumption: { base: 0, factor: 0.5, op: (_, progress) => progress * 0.5 },
+  },
+  coal: {
+    production: { base: 0, factor: 2 }, // Handled separately using transition peak
+    consumption: { base: 0, factor: 1.5 }, // Handled separately using transition peak
+  },
+  electronics: {
+    production: { base: 0, factor: 1.5 }, // Handled separately using transition peak
+    consumption: { base: 0, factor: 1.2 }, // Handled separately using transition peak
+  },
+  energy: {
+    production: { base: 0, factor: 3 },
+    consumption: { base: 0, factor: 2.5, op: (_, progress) => progress * 2.5 },
+  },
+  cyberneticComponents: {
+    production: { base: 0, factor: 0.5 },
+    consumption: { base: 0, factor: 0.3, op: (_, progress) => progress * 0.3 },
+  },
+  data: {
+    production: { base: 0, factor: 2 },
+    consumption: { base: 0, factor: 1.5, op: (_, progress) => progress * 1.5 },
+  },
 };
 
-// Helper function to update rates based on config
-function updateRates<T extends keyof Resources>(
+// Unified helper function to update rates
+function updateRatesUnified<T extends keyof Resources>(
   rates: Partial<Resources>,
-  config: Record<
-    T,
-    { base: number; factor: number; op?: (base: number, progress: number) => number }
-  >,
+  key: T,
   progress: number,
-  defaultOp?: (resource: T, base: number, factor: number, progress: number) => number
+  type: 'production' | 'consumption',
+  defaultOp: (base: number, factor: number, progress: number) => number
 ) {
-  Object.keys(config).forEach((key) => {
-    const resource = key as T;
-    if (config[resource].op) {
-      rates[resource] = config[resource].op!(config[resource].base, progress);
-    } else if (defaultOp) {
-      rates[resource] = defaultOp(
-        resource,
-        config[resource].base,
-        config[resource].factor,
-        progress
-      );
-    }
-  });
+  const { base, factor, op } = adjustments[key][type];
+  rates[key] = op ? op(base, progress) : defaultOp(base, factor, progress);
 }
 
 export class ResourceState implements IResourceState, BaseState {
@@ -123,6 +129,37 @@ export class ResourceState implements IResourceState, BaseState {
       romanResources: computed,
       cyberpunkResources: computed,
       resourcesByEra: computed,
+      updateRates: false, // Don't make this observable
+    });
+  }
+
+  // Helper method for backward compatibility
+  updateRates<T extends keyof Resources>(
+    rates: Partial<Resources>,
+    config: Record<
+      T,
+      { base: number; factor: number; op?: (base: number, progress: number) => number }
+    >,
+    progress: number,
+    defaultOp?: (resource: T, base: number, factor: number, progress: number) => number
+  ) {
+    // This function is now a wrapper around the new unified function for backward compatibility
+    Object.keys(config).forEach((key) => {
+      const resource = key as keyof Resources;
+      const type = rates === this.productionRates ? 'production' : 'consumption';
+
+      // Use default operation from parameter or provide a simple one
+      const defaultOperation = defaultOp
+        ? (base: number, factor: number, p: number) => defaultOp(resource as T, base, factor, p)
+        : (base: number, factor: number, p: number) => base + p * factor;
+
+      updateRatesUnified(
+        rates,
+        resource,
+        progress,
+        type as 'production' | 'consumption',
+        defaultOperation
+      );
     });
   }
 
@@ -208,31 +245,38 @@ export class ResourceState implements IResourceState, BaseState {
     // Calculate transitional peak once
     const transitionPeak = Math.sin(progress * Math.PI); // Peaks at 0.5 progress
 
-    // Update Roman and general production rates
-    updateRates(this.productionRates, productionAdjustments, progress);
+    // Process all resources using the unified helper function
+    (Object.keys(this.productionRates) as (keyof Resources)[]).forEach((resource) => {
+      // Skip special transition resources
+      if (resource !== 'coal' && resource !== 'electronics') {
+        updateRatesUnified(
+          this.productionRates,
+          resource,
+          progress,
+          'production',
+          (base, factor, p) => base + p * factor
+        );
+      }
+    });
 
-    // Apply special transitional effects
-    this.productionRates.coal = transitionPeak * productionAdjustments.coal.factor;
-    this.productionRates.electronics = transitionPeak * productionAdjustments.electronics.factor;
+    (Object.keys(this.consumptionRates) as (keyof Resources)[]).forEach((resource) => {
+      // Skip special transition resources
+      if (resource !== 'coal' && resource !== 'electronics') {
+        updateRatesUnified(
+          this.consumptionRates,
+          resource,
+          progress,
+          'consumption',
+          (base, factor, p) => base + p * factor
+        );
+      }
+    });
 
-    // Update cyberpunk production based on linear progress
-    updateRates(
-      this.productionRates,
-      {
-        energy: productionAdjustments.energy,
-        cyberneticComponents: productionAdjustments.cyberneticComponents,
-        data: productionAdjustments.data,
-      } as Record<keyof Resources, (typeof productionAdjustments)[keyof Resources]>,
-      progress,
-      (_, base, factor, p) => base + p * factor
-    );
-
-    // Update consumption rates
-    updateRates(this.consumptionRates, consumptionAdjustments, progress);
-
-    // Special transitional consumption rates
-    this.consumptionRates.coal = transitionPeak * consumptionAdjustments.coal.factor;
-    this.consumptionRates.electronics = transitionPeak * consumptionAdjustments.electronics.factor;
+    // Special handling for transition resources
+    this.productionRates.coal = transitionPeak * adjustments.coal.production.factor;
+    this.productionRates.electronics = transitionPeak * adjustments.electronics.production.factor;
+    this.consumptionRates.coal = transitionPeak * adjustments.coal.consumption.factor;
+    this.consumptionRates.electronics = transitionPeak * adjustments.electronics.consumption.factor;
   }
 
   // Get resources for a specific era (for compatibility)
