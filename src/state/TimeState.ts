@@ -98,27 +98,22 @@ export class TimeState implements ITimeState {
       // Calculate whole days elapsed
       const daysElapsed = Math.floor(this.elapsedTimeAccumulator / this.effectiveDayLength);
 
-      // For debugging: log time advancement
-      console.debug(
-        `Time update: +${daysElapsed} days | ` +
-          `Accumulator before: ${(this.elapsedTimeAccumulator / this.effectiveDayLength).toFixed(
-            3
-          )} days | ` +
-          `Effective day length: ${this.effectiveDayLength}ms`
-      );
+      // Update game time by the calculated days
+      this.advanceTime(daysElapsed);
 
-      // Subtract used time from accumulator
+      // Subtract used time from accumulator, keeping only the remainder
       this.elapsedTimeAccumulator -= daysElapsed * this.effectiveDayLength;
 
-      // For debugging: log remaining accumulator
-      console.debug(
-        `Remaining accumulator: ${(this.elapsedTimeAccumulator / this.effectiveDayLength).toFixed(
-          3
-        )} days | ` + `Total time processed: ${elapsed}ms`
-      );
-
-      // Advance the game time by the calculated days
-      this.advanceTime(daysElapsed);
+      if (process.env.NODE_ENV !== 'production') {
+        // For debugging: log time advancement
+        console.debug(
+          `Time update: +${daysElapsed} days | ` +
+            `Remaining accumulator: ${(
+              this.elapsedTimeAccumulator / this.effectiveDayLength
+            ).toFixed(3)} days | ` +
+            `Effective day length: ${this.effectiveDayLength}ms`
+        );
+      }
     }
   }
 
