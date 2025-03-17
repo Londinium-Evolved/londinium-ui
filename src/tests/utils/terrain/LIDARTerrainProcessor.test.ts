@@ -13,23 +13,27 @@ jest.mock('geotiff', () => {
         getHeight: jest.fn().mockReturnValue(100),
         readRasters: jest.fn().mockResolvedValue([
           // Create a mock 100x100 terrain with a hill in the middle
-          new Uint16Array(Array(10000).fill(0).map((_, i) => {
-            const x = i % 100;
-            const y = Math.floor(i / 100);
-            const distFromCenter = Math.sqrt(Math.pow(x - 50, 2) + Math.pow(y - 50, 2));
+          new Uint16Array(
+            Array(10000)
+              .fill(0)
+              .map((_, i) => {
+                const x = i % 100;
+                const y = Math.floor(i / 100);
+                const distFromCenter = Math.sqrt(Math.pow(x - 50, 2) + Math.pow(y - 50, 2));
 
-            // Create a hill in the center and a valley/river running through
-            if (distFromCenter < 20) {
-              return 1000 - distFromCenter * 10; // Hill
-            } else if (y > 40 && y < 60 && x > 20) {
-              return 500; // River
-            } else {
-              return 800; // Base terrain
-            }
-          }))
-        ])
-      }))
-    }))
+                // Create a hill in the center and a valley/river running through
+                if (distFromCenter < 20) {
+                  return 1000 - distFromCenter * 10; // Hill
+                } else if (y > 40 && y < 60 && x > 20) {
+                  return 500; // River
+                } else {
+                  return 800; // Base terrain
+                }
+              })
+          ),
+        ]),
+      })),
+    })),
   };
 });
 
