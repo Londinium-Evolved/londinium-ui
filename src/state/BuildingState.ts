@@ -108,18 +108,19 @@ export class BuildingState implements IBuildingState, BaseState {
 
   // Progress construction of all buildings in the queue
   progressConstruction(progressAmount = this.constructionProgressRate) {
-    // Process each building in the construction queue
-    this.constructionQueue.forEach((id, index) => {
+    // Iterate backward through the queue to avoid index shifting issues during splicing
+    for (let i = this.constructionQueue.length - 1; i >= 0; i--) {
+      const id = this.constructionQueue[i];
       const building = this.buildings[id];
       if (building) {
         building.constructionProgress = Math.min(1, building.constructionProgress + progressAmount);
 
         // If construction is complete, remove from queue
         if (building.constructionProgress >= 1) {
-          this.constructionQueue.splice(index, 1);
+          this.constructionQueue.splice(i, 1);
         }
       }
-    });
+    }
   }
 
   // Apply era transition effects to buildings
