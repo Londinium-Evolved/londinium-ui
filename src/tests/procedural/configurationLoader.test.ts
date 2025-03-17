@@ -273,199 +273,14 @@ global.fetch = jest.fn().mockImplementation(() =>
 );
 
 describe('ConfigurationLoader', () => {
-  // Create default configs for testing
-  const defaultConfigs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }> =
-    {
-      domus: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      insula: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      forum: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      temple: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      bath: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      'megacorp-tower': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      'residential-stack': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      'market-hub': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      'data-center': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-      'entertainment-complex': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
-      },
-    } as unknown as Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
+  // Define a type for building configuration
+  type BuildingConfigPair = {
+    roman: BuildingConfig;
+    cyberpunk: BuildingConfig;
+  };
 
-  beforeEach(() => {
-    // Reset the module between tests
-    jest.resetModules();
-    (global.fetch as jest.Mock).mockClear();
-  });
-
-  it('should initialize with default configurations', () => {
-    const loader = initializeConfigurationLoader(defaultConfigs);
-    const config = loader.getConfiguration('domus', 'roman');
-
-    expect(config.widthRange).toEqual([1, 2]);
-    expect(config.material).toBeInstanceOf(THREE.MeshStandardMaterial);
-  });
-
-  it('should load configurations from JSON', async () => {
-    const loader = initializeConfigurationLoader(defaultConfigs);
-    await loader.loadConfigurationsFromJSON('/test/path.json');
-
-    expect(global.fetch).toHaveBeenCalledWith('/test/path.json');
-
-    const config = loader.getConfiguration('domus', 'roman');
-    expect(config.widthRange).toEqual([5, 7]);
-    expect(config.material).toBeInstanceOf(THREE.MeshStandardMaterial);
-    expect((config.material as THREE.MeshStandardMaterial).color).toBeDefined();
-  });
-
-  it('should fall back to default configurations on error', async () => {
-    (global.fetch as jest.Mock).mockImplementationOnce(() => Promise.reject('Network error'));
-
-    const loader = initializeConfigurationLoader(defaultConfigs);
-    await loader.loadConfigurationsFromJSON('/test/path.json');
-
-    const config = loader.getConfiguration('domus', 'roman');
-    expect(config.widthRange).toEqual([1, 2]);
-  });
-
-  it('should serialize configurations to JSON format', () => {
-    const loader = initializeConfigurationLoader(defaultConfigs);
-    const serialized = loader.serializeConfigurations();
-
-    expect(serialized.version).toBeDefined();
-    expect(serialized.lastUpdated).toBeDefined();
-    expect(serialized.buildingTypes.domus.roman.widthRange).toEqual([1, 2]);
-    expect(serialized.buildingTypes.domus.roman.material.color).toBeDefined();
-  });
-
-  // Add the missing building types
-  defaultConfigs['amphitheater'] = {
+  // Create a standard building config template to reduce duplication
+  const standardConfig: BuildingConfigPair = {
     roman: {
       widthRange: [1, 2],
       depthRange: [1, 2],
@@ -479,13 +294,75 @@ describe('ConfigurationLoader', () => {
       material: new THREE.MeshStandardMaterial({ color: '#000000' }),
     },
   };
-  defaultConfigs['nano-fabricator'] = defaultConfigs['megacorp-tower']; // Reuse existing config for simplicity
-  // Replace entertainment-complex with entertainment-hub
-  const typedConfigs = defaultConfigs as Record<
-    string,
-    { roman: BuildingConfig; cyberpunk: BuildingConfig }
-  >;
-  const hubConfig = typedConfigs['entertainment-complex'];
-  delete typedConfigs['entertainment-complex'];
-  defaultConfigs['entertainment-hub'] = hubConfig;
+
+  // Define an extended type that includes all building types used in tests
+  // This allows us to maintain type safety while accommodating legacy code
+  type TestBuildingType = BuildingType | 'market-hub' | 'entertainment-complex';
+
+  // Type definition to match what the configuration loader expects
+  type ConfigLoaderInput = Record<string, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
+
+  // Create default configs for testing with proper typing
+  const defaultConfigs = {
+    domus: { ...standardConfig },
+    insula: { ...standardConfig },
+    forum: { ...standardConfig },
+    temple: { ...standardConfig },
+    bath: { ...standardConfig },
+    'megacorp-tower': { ...standardConfig },
+    'residential-stack': { ...standardConfig },
+    'data-center': { ...standardConfig },
+    amphitheater: { ...standardConfig },
+    'nano-fabricator': { ...standardConfig },
+    'entertainment-hub': { ...standardConfig },
+    // Include legacy types used in the tests but not in the official BuildingType
+    'entertainment-complex': { ...standardConfig },
+    'market-hub': { ...standardConfig },
+  } as Record<TestBuildingType, BuildingConfigPair>;
+
+  beforeEach(() => {
+    // Reset the module between tests
+    jest.resetModules();
+    (global.fetch as jest.Mock).mockClear();
+  });
+
+  it('should initialize with default configurations', () => {
+    const loader = initializeConfigurationLoader(defaultConfigs as ConfigLoaderInput);
+    const config = loader.getConfiguration('domus', 'roman');
+
+    expect(config.widthRange).toEqual([1, 2]);
+    expect(config.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+  });
+
+  it('should load configurations from JSON', async () => {
+    const loader = initializeConfigurationLoader(defaultConfigs as ConfigLoaderInput);
+    await loader.loadConfigurationsFromJSON('/test/path.json');
+
+    expect(global.fetch).toHaveBeenCalledWith('/test/path.json');
+
+    const config = loader.getConfiguration('domus', 'roman');
+    expect(config.widthRange).toEqual([5, 7]);
+    expect(config.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+    expect((config.material as THREE.MeshStandardMaterial).color).toBeDefined();
+  });
+
+  it('should fall back to default configurations on error', async () => {
+    (global.fetch as jest.Mock).mockImplementationOnce(() => Promise.reject('Network error'));
+
+    const loader = initializeConfigurationLoader(defaultConfigs as ConfigLoaderInput);
+    await loader.loadConfigurationsFromJSON('/test/path.json');
+
+    const config = loader.getConfiguration('domus', 'roman');
+    expect(config.widthRange).toEqual([1, 2]);
+  });
+
+  it('should serialize configurations to JSON format', () => {
+    const loader = initializeConfigurationLoader(defaultConfigs as ConfigLoaderInput);
+    const serialized = loader.serializeConfigurations();
+
+    expect(serialized.version).toBeDefined();
+    expect(serialized.lastUpdated).toBeDefined();
+    expect(serialized.buildingTypes.domus.roman.widthRange).toEqual([1, 2]);
+    expect(serialized.buildingTypes.domus.roman.material.color).toBeDefined();
+  });
 });
