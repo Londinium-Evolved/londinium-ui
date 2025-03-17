@@ -274,149 +274,162 @@ global.fetch = jest.fn().mockImplementation(() =>
 
 describe('ConfigurationLoader', () => {
   // Create default configs for testing
-  const defaultConfigs: Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }> =
-    {
-      domus: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+  const defaultConfigs = {
+    domus: {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
       },
-      insula: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
       },
-      forum: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+    },
+    insula: {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
       },
-      temple: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
       },
-      bath: {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+    },
+    forum: {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
       },
-      'megacorp-tower': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
       },
-      'residential-stack': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+    },
+    temple: {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
       },
-      'market-hub': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
       },
-      'data-center': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+    },
+    bath: {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
       },
-      'entertainment-complex': {
-        roman: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
-        },
-        cyberpunk: {
-          widthRange: [1, 2],
-          depthRange: [1, 2],
-          heightRange: [1, 2],
-          material: new THREE.MeshStandardMaterial({ color: '#000000' }),
-        },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
       },
-    } as Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
+    },
+    'megacorp-tower': {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
+      },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+    },
+    'residential-stack': {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
+      },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+    },
+    'data-center': {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
+      },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+    },
+    'amphitheater': {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
+      },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+    },
+    'nano-fabricator': {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
+      },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+    },
+    'entertainment-hub': {
+      roman: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#ffffff' }),
+      },
+      cyberpunk: {
+        widthRange: [1, 2],
+        depthRange: [1, 2],
+        heightRange: [1, 2],
+        material: new THREE.MeshStandardMaterial({ color: '#000000' }),
+      },
+    },
+  } as Record<BuildingType, { roman: BuildingConfig; cyberpunk: BuildingConfig }>;
 
   beforeEach(() => {
     // Reset the module between tests
