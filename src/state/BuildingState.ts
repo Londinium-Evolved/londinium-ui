@@ -158,6 +158,8 @@ export class BuildingState implements IBuildingState, BaseState {
 
   // Cleanup when the store is no longer needed
   dispose(): void {
-    // Add cleanup logic if needed
+    // Clean up any event listeners or subscriptions if needed
+    // Clear any timers or intervals specific to buildings
+    // Currently no specific cleanup required for BuildingState
   }
 }

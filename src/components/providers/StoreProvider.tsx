@@ -16,7 +16,19 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
 
       // Cleanup when the provider is unmounted
       return () => {
-        // Cleanup any resources, web workers, etc.
+        // Dispose of all stores to prevent memory leaks
+        if (store.gameState) {
+          store.gameState.dispose();
+        }
+        if (store.buildingState) {
+          store.buildingState.dispose();
+        }
+        if (store.resourceState) {
+          store.resourceState.dispose();
+        }
+        if (store.citizenState) {
+          store.citizenState.dispose();
+        }
         if (store.timeState) {
           store.timeState.dispose();
         }

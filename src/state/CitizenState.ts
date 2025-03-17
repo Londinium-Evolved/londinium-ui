@@ -163,6 +163,8 @@ export class CitizenState implements ICitizenState, BaseState {
 
   // Cleanup when the store is no longer needed
   dispose(): void {
-    // Add cleanup logic if needed
+    // Clean up any event listeners or subscriptions if needed
+    // Clear any references to other stores or clean up circular references
+    // Currently no specific cleanup required for CitizenState
   }
 }

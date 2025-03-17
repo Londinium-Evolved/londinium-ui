@@ -1,6 +1,11 @@
 import { makeAutoObservable, computed } from 'mobx';
 import { RootStore } from './RootStore';
 import { Era, IResourceState, Resources, BaseState } from './types';
+import {
+  resourceAdjustments,
+  updateRatesUnified,
+  calculateTransitionPeak,
+} from '../config/resourceAdjustments';
 
 // Define resource types for different eras
 export type RomanResource = 'food' | 'wood' | 'stone' | 'metal';
@@ -14,66 +19,13 @@ export type Resource = CyberpunkResource;
 export type { Resources };
 
 // Define a unified adjustment config type
-type AdjustmentConfig = {
-  base: number;
-  factor: number;
-  op?: (base: number, progress: number) => number;
-};
+// Moved to resourceAdjustments.ts
 
 // Unified adjustments for both production and consumption
-const adjustments: Record<
-  keyof Resources,
-  { production: AdjustmentConfig; consumption: AdjustmentConfig }
-> = {
-  food: {
-    production: { base: 2, factor: 0.5, op: (base, progress) => base * (1 - progress * 0.5) },
-    consumption: { base: 1, factor: 0, op: () => 1 }, // Always 1
-  },
-  wood: {
-    production: { base: 1, factor: 0.7, op: (base, progress) => base * (1 - progress * 0.7) },
-    consumption: { base: 0.5, factor: 0.8, op: (base, progress) => base * (1 - progress * 0.8) },
-  },
-  stone: {
-    production: { base: 0.5, factor: 0.6, op: (base, progress) => base * (1 - progress * 0.6) },
-    consumption: { base: 0, factor: 0.1, op: (_, progress) => progress * 0.1 },
-  },
-  metal: {
-    production: { base: 0.2, factor: 2, op: (base, progress) => base * (1 + progress * 2) },
-    consumption: { base: 0, factor: 0.5, op: (_, progress) => progress * 0.5 },
-  },
-  coal: {
-    production: { base: 0, factor: 2 }, // Handled separately using transition peak
-    consumption: { base: 0, factor: 1.5 }, // Handled separately using transition peak
-  },
-  electronics: {
-    production: { base: 0, factor: 1.5 }, // Handled separately using transition peak
-    consumption: { base: 0, factor: 1.2 }, // Handled separately using transition peak
-  },
-  energy: {
-    production: { base: 0, factor: 3 },
-    consumption: { base: 0, factor: 2.5, op: (_, progress) => progress * 2.5 },
-  },
-  cyberneticComponents: {
-    production: { base: 0, factor: 0.5 },
-    consumption: { base: 0, factor: 0.3, op: (_, progress) => progress * 0.3 },
-  },
-  data: {
-    production: { base: 0, factor: 2 },
-    consumption: { base: 0, factor: 1.5, op: (_, progress) => progress * 1.5 },
-  },
-};
+// Moved to resourceAdjustments.ts
 
 // Unified helper function to update rates
-function updateRatesUnified<T extends keyof Resources>(
-  rates: Partial<Resources>,
-  key: T,
-  progress: number,
-  type: 'production' | 'consumption',
-  defaultOp: (base: number, factor: number, progress: number) => number
-) {
-  const { base, factor, op } = adjustments[key][type];
-  rates[key] = op ? op(base, progress) : defaultOp(base, factor, progress);
-}
+// Moved to resourceAdjustments.ts
 
 export class ResourceState implements IResourceState, BaseState {
   rootStore: RootStore;
@@ -243,7 +195,7 @@ export class ResourceState implements IResourceState, BaseState {
     if (!gameState) return;
 
     // Calculate transitional peak once
-    const transitionPeak = Math.sin(progress * Math.PI); // Peaks at 0.5 progress
+    const transitionPeak = calculateTransitionPeak(progress);
 
     // Process all resources using the unified helper function
     (Object.keys(this.productionRates) as (keyof Resources)[]).forEach((resource) => {
@@ -273,10 +225,12 @@ export class ResourceState implements IResourceState, BaseState {
     });
 
     // Special handling for transition resources
-    this.productionRates.coal = transitionPeak * adjustments.coal.production.factor;
-    this.productionRates.electronics = transitionPeak * adjustments.electronics.production.factor;
-    this.consumptionRates.coal = transitionPeak * adjustments.coal.consumption.factor;
-    this.consumptionRates.electronics = transitionPeak * adjustments.electronics.consumption.factor;
+    this.productionRates.coal = transitionPeak * resourceAdjustments.coal.production.factor;
+    this.productionRates.electronics =
+      transitionPeak * resourceAdjustments.electronics.production.factor;
+    this.consumptionRates.coal = transitionPeak * resourceAdjustments.coal.consumption.factor;
+    this.consumptionRates.electronics =
+      transitionPeak * resourceAdjustments.electronics.consumption.factor;
   }
 
   // Get resources for a specific era (for compatibility)
@@ -290,6 +244,7 @@ export class ResourceState implements IResourceState, BaseState {
 
   // Cleanup when the store is no longer needed
   dispose(): void {
-    // Add cleanup logic if needed
+    // Remove any listeners, timers, or other resources that need explicit cleanup
+    // Currently no specific cleanup required for ResourceState
   }
 }

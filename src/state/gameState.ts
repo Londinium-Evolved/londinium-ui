@@ -129,6 +129,7 @@ export class GameState implements IGameState, BaseState {
 
   // Cleanup when the store is no longer needed
   dispose(): void {
-    // Add cleanup logic if needed
+    // Clean up observers or subscriptions if needed in the future
+    // Currently no specific cleanup required for GameState
   }
 }
