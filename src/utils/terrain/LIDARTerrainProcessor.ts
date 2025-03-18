@@ -6,11 +6,10 @@ import {
   ROMAN_ERA_ADJUSTMENTS,
   CYBERPUNK_ERA_ADJUSTMENTS,
   MODERN_INFRASTRUCTURE_MASK,
-  HEIGHT_SCALE,
-  NODATA_VALUE,
   TerrainFeatureMetrics,
 } from './types';
 import { Era } from '../../state/types';
+import { resampleHeightmap, generateNormalMap } from './terrainUtils';
 
 /**
  * LIDARTerrainProcessor handles the processing of Digital Terrain Model (DTM)
@@ -451,40 +450,12 @@ export class LIDARTerrainProcessor {
       // For now, we'll generate on the main thread
     }
 
-    // Generate normal map on the main thread
-    const normalMapData = new Uint8Array(this.resolution.width * this.resolution.height * 4);
-
-    // For each pixel in the heightmap
-    for (let y = 0; y < this.resolution.height; y++) {
-      for (let x = 0; x < this.resolution.width; x++) {
-        const index = y * this.resolution.width + x;
-        const normalIndex = index * 4;
-
-        // Get heights of neighboring pixels
-        const left = x > 0 ? this.heightmapData[index - 1] : this.heightmapData[index];
-        const right =
-          x < this.resolution.width - 1 ? this.heightmapData[index + 1] : this.heightmapData[index];
-        const up =
-          y > 0 ? this.heightmapData[index - this.resolution.width] : this.heightmapData[index];
-        const down =
-          y < this.resolution.height - 1
-            ? this.heightmapData[index + this.resolution.width]
-            : this.heightmapData[index];
-
-        // Calculate normal using central differences
-        const dzdx = (right - left) * 2.0;
-        const dzdy = (down - up) * 2.0;
-
-        // Create and normalize the normal vector
-        const normal = new THREE.Vector3(-dzdx, -dzdy, 8.0).normalize();
-
-        // Pack into RGB format (0-255)
-        normalMapData[normalIndex] = Math.floor((normal.x * 0.5 + 0.5) * 255);
-        normalMapData[normalIndex + 1] = Math.floor((normal.y * 0.5 + 0.5) * 255);
-        normalMapData[normalIndex + 2] = Math.floor((normal.z * 0.5 + 0.5) * 255);
-        normalMapData[normalIndex + 3] = 255; // Alpha channel
-      }
-    }
+    // Generate normal map on the main thread using the shared utility function
+    const normalMapData = generateNormalMap(
+      this.heightmapData,
+      this.resolution.width,
+      this.resolution.height
+    );
 
     // Create a Three.js data texture
     const normalMap = new THREE.DataTexture(
@@ -551,54 +522,14 @@ export class LIDARTerrainProcessor {
     targetWidth: number,
     targetHeight: number
   ): Float32Array {
-    const result = new Float32Array(targetWidth * targetHeight);
-
-    // Calculate scaling factors
-    const xScale = originalWidth / targetWidth;
-    const yScale = originalHeight / targetHeight;
-
-    // For each pixel in the target heightmap
-    for (let y = 0; y < targetHeight; y++) {
-      for (let x = 0; x < targetWidth; x++) {
-        const targetIndex = y * targetWidth + x;
-
-        // Calculate corresponding position in the original heightmap
-        const origX = x * xScale;
-        const origY = y * yScale;
-
-        // Calculate integer positions for bilinear interpolation
-        const x0 = Math.floor(origX);
-        const y0 = Math.floor(origY);
-        const x1 = Math.min(x0 + 1, originalWidth - 1);
-        const y1 = Math.min(y0 + 1, originalHeight - 1);
-
-        // Calculate fractional parts
-        const xFrac = origX - x0;
-        const yFrac = origY - y0;
-
-        // Get values at the four corners
-        const val00 = originalData[y0 * originalWidth + x0];
-        const val01 = originalData[y0 * originalWidth + x1];
-        const val10 = originalData[y1 * originalWidth + x0];
-        const val11 = originalData[y1 * originalWidth + x1];
-
-        // Handle NoData values (usually indicated by very large values)
-        const useVal00 = val00 < NODATA_VALUE ? val00 : 0;
-        const useVal01 = val01 < NODATA_VALUE ? val01 : 0;
-        const useVal10 = val10 < NODATA_VALUE ? val10 : 0;
-        const useVal11 = val11 < NODATA_VALUE ? val11 : 0;
-
-        // Perform bilinear interpolation
-        const top = useVal00 * (1 - xFrac) + useVal01 * xFrac;
-        const bottom = useVal10 * (1 - xFrac) + useVal11 * xFrac;
-        const value = top * (1 - yFrac) + bottom * yFrac;
-
-        // Normalize the height data to a reasonable range
-        result[targetIndex] = value / HEIGHT_SCALE; // Scale to reasonable values for Three.js
-      }
-    }
-
-    return result;
+    // Use the shared utility function instead of duplicating the implementation
+    return resampleHeightmap(
+      originalData,
+      originalWidth,
+      originalHeight,
+      targetWidth,
+      targetHeight
+    );
   }
 
   /**
