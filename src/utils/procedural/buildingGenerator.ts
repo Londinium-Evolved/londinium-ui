@@ -9,6 +9,8 @@ import {
 } from './buildingCSG';
 import { ConfigurationLoader, initializeConfigurationLoader } from './configurationLoader';
 import { materialFactory } from '../three/materialFactory';
+import { generateRomanBuilding } from './romanBuildingGenerator';
+import { ROMAN_BUILDING_TYPES } from '../../config/buildingConfig';
 
 // Simple random number generator class since THREE.MathUtils.Random doesn't exist
 class RandomGenerator {
@@ -790,13 +792,35 @@ export const generateBuildingGeometry = (params: BuildingParams): BuildingMeshDa
   // Get the building configuration based on type and era
   const config = getBuildingConfig(type, era);
 
-  // Generate based on building type
+  // If it's a Roman building, use the historically accurate generator
+  if (era === 'roman' && ROMAN_BUILDING_TYPES.includes(type)) {
+    console.log(`Generating historically accurate Roman building: ${type}`);
+
+    // Use the specialized Roman building generator
+    const buildingData = generateRomanBuilding(type, config, seed);
+
+    // Add metadata about generation time to the geometry
+    const generationTime = performance.now() - startTime;
+    buildingData.geometry.userData = {
+      ...buildingData.geometry.userData,
+      generationTime,
+      generationDate: new Date().toISOString(),
+      seed,
+      type,
+      era,
+    };
+
+    return buildingData;
+  }
+
+  // Generate based on building type for non-Roman buildings
   let buildingData: BuildingMeshData;
 
   switch (type) {
     case 'domus':
       // Use specialized generation for Roman domus
       if (era === 'roman') {
+        // This should never be reached now due to the check above
         buildingData = generateRomanDomus(random, config);
       } else {
         // Fall back to generic building for non-Roman eras
