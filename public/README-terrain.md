@@ -36,7 +36,7 @@ This endpoint should return a GeoTIFF file with the appropriate data for the app
 
 If you encounter issues with terrain loading:
 
-1. Check that the GeoTIFF format is properly formed
+1. Check that the GeoTIFF format is properly formed (e.g., use a tool like gdalinfo to inspect the file's metadata, ensuring it includes key tags such as Projection, Raster Size, and Number of Bands)
 2. Verify that the data includes elevation values (not just RGB data)
 3. Ensure the sample file is in the correct location (public directory)
 4. The console will show detailed error messages if the LIDAR data cannot be processed
