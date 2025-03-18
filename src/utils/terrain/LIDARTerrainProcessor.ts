@@ -870,8 +870,14 @@ export class LIDARTerrainProcessor extends EventTarget {
 
       const distance = cameraPosition.distanceTo(terrainCenter);
 
-      // Adjust LOD based on distance
-      if (distance > this.resolution.width * 2) {
+      // Multi-level LOD system with more granular steps
+      if (distance > this.resolution.width * 4) {
+        adjustedSegmentSize = segmentSize * 8; // Very low detail for very far away
+        lodLevel = 8;
+      } else if (distance > this.resolution.width * 3) {
+        adjustedSegmentSize = segmentSize * 6; // Extra low detail
+        lodLevel = 6;
+      } else if (distance > this.resolution.width * 2) {
         adjustedSegmentSize = segmentSize * 4; // Low detail far away
         lodLevel = 4;
       } else if (distance > this.resolution.width) {
@@ -887,11 +893,14 @@ export class LIDARTerrainProcessor extends EventTarget {
     }
 
     // Create a plane geometry with the appropriate dimensions
+    const segmentsX = Math.max(1, Math.ceil(this.resolution.width / adjustedSegmentSize));
+    const segmentsY = Math.max(1, Math.ceil(this.resolution.height / adjustedSegmentSize));
+
     const geometry = new THREE.PlaneGeometry(
       this.resolution.width,
       this.resolution.height,
-      Math.ceil(this.resolution.width / adjustedSegmentSize),
-      Math.ceil(this.resolution.height / adjustedSegmentSize)
+      segmentsX,
+      segmentsY
     );
 
     // Apply heightmap to geometry vertices
@@ -916,10 +925,58 @@ export class LIDARTerrainProcessor extends EventTarget {
     // Update normals
     geometry.computeVertexNormals();
 
+    // Add LOD level as a custom property to help with debugging
+    (geometry as THREE.PlaneGeometry & { lodLevel: number }).lodLevel = lodLevel;
+
     // Cache the geometry
     this.geometryCache.set(cacheKey, geometry);
 
+    console.log(
+      `Created terrain geometry with LOD level ${lodLevel} (${segmentsX}x${segmentsY} segments)`
+    );
+
     return geometry;
+  }
+
+  /**
+   * Creates terrain geometries for multiple LOD levels at once
+   * @param baseSegmentSize The base segment size for the highest detail level
+   * @param lodLevels The number of LOD levels to generate
+   * @returns Array of geometries for each LOD level (from highest to lowest detail)
+   */
+  createLODLevels(baseSegmentSize: number, lodLevels: number = 4): THREE.PlaneGeometry[] {
+    if (!this.heightmapData) {
+      throw new Error('No heightmap data available for LOD generation');
+    }
+
+    const geometries: THREE.PlaneGeometry[] = [];
+
+    for (let i = 0; i < lodLevels; i++) {
+      // Each LOD level uses progressively larger segments (reducing detail)
+      const segmentMultiplier = Math.pow(2, i);
+      const lodSegmentSize = baseSegmentSize * segmentMultiplier;
+
+      // Create geometry for this LOD level
+      const lodGeometry = this.createTerrainGeometry(lodSegmentSize);
+      geometries.push(lodGeometry);
+
+      console.log(`Created LOD level ${i} with segment size ${lodSegmentSize}`);
+    }
+
+    return geometries;
+  }
+
+  /**
+   * Clears the geometry cache to free memory
+   */
+  clearGeometryCache(): void {
+    // Dispose all cached geometries to prevent memory leaks
+    this.geometryCache.forEach((geometry) => {
+      geometry.dispose();
+    });
+
+    this.geometryCache.clear();
+    console.log('Terrain geometry cache cleared');
   }
 
   /**
