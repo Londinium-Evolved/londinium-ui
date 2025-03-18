@@ -40,6 +40,27 @@ export interface TerrainAdjustment {
   };
 }
 
+/**
+ * Interface for terrain feature metrics
+ * Used to track and validate terrain adjustments
+ */
+export interface TerrainFeatureMetrics {
+  era: Era;
+  thamesWidth: number;
+  walbrookWidth: number;
+  hillHeights: {
+    ludgateHill: number;
+    cornhill: number;
+    towerHill: number;
+  };
+  adjustmentFactors: {
+    thamesWidthChange: number;
+    walbrookWidthChange: number;
+    ludgateHillHeightChange: number;
+    cornhillHeightChange: number;
+  };
+}
+
 // Historical adjustment constants
 export const ROMAN_ERA_ADJUSTMENTS: TerrainAdjustment[] = [
   { type: 'river', name: 'thames', factor: 0.7 }, // Thames was narrower

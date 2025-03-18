@@ -3,11 +3,13 @@ import { fromArrayBuffer } from 'geotiff';
 import {
   GeologicalFeature,
   Resolution,
+  TerrainAdjustment,
   ROMAN_ERA_ADJUSTMENTS,
   CYBERPUNK_ERA_ADJUSTMENTS,
   MODERN_INFRASTRUCTURE_MASK,
   HEIGHT_SCALE,
   NODATA_VALUE,
+  TerrainFeatureMetrics,
 } from './types';
 import { Era } from '../../state/types';
 
@@ -135,13 +137,17 @@ export class LIDARTerrainProcessor {
   /**
    * Apply historical adjustments to the terrain based on era
    * @param era The game era to adjust terrain for
+   * @returns TerrainFeatureMetrics object with information about key terrain features
    */
-  applyHistoricalAdjustments(era: Era): void {
+  applyHistoricalAdjustments(era: Era): TerrainFeatureMetrics {
     if (!this.heightmapData) {
       throw new Error('No heightmap data available for adjustment');
     }
 
     const adjustments = era === 'roman' ? ROMAN_ERA_ADJUSTMENTS : CYBERPUNK_ERA_ADJUSTMENTS;
+
+    // Track metrics before applying adjustments
+    const preAdjustmentMetrics = this.calculateTerrainMetrics();
 
     // Process each adjustment
     adjustments.forEach((adjustment) => {
@@ -165,6 +171,187 @@ export class LIDARTerrainProcessor {
     if (era === 'roman') {
       this.restoreHistoricalElevations();
     }
+
+    // Calculate terrain metrics after adjustments
+    const postAdjustmentMetrics = this.calculateTerrainMetrics();
+
+    return {
+      era,
+      thamesWidth: postAdjustmentMetrics.thamesWidth,
+      walbrookWidth: postAdjustmentMetrics.walbrookWidth,
+      hillHeights: postAdjustmentMetrics.hillHeights,
+      adjustmentFactors: {
+        thamesWidthChange:
+          preAdjustmentMetrics.thamesWidth > 0
+            ? postAdjustmentMetrics.thamesWidth / preAdjustmentMetrics.thamesWidth
+            : 1,
+        walbrookWidthChange:
+          preAdjustmentMetrics.walbrookWidth > 0
+            ? postAdjustmentMetrics.walbrookWidth / preAdjustmentMetrics.walbrookWidth
+            : 1,
+        ludgateHillHeightChange:
+          preAdjustmentMetrics.hillHeights.ludgateHill > 0
+            ? postAdjustmentMetrics.hillHeights.ludgateHill /
+              preAdjustmentMetrics.hillHeights.ludgateHill
+            : 1,
+        cornhillHeightChange:
+          preAdjustmentMetrics.hillHeights.cornhill > 0
+            ? postAdjustmentMetrics.hillHeights.cornhill / preAdjustmentMetrics.hillHeights.cornhill
+            : 1,
+      },
+    };
+  }
+
+  /**
+   * Calculate metrics about key terrain features
+   * @private
+   */
+  private calculateTerrainMetrics(): TerrainFeatureMetrics {
+    const result: TerrainFeatureMetrics = {
+      era: 'roman', // Default
+      thamesWidth: 0,
+      walbrookWidth: 0,
+      hillHeights: {
+        ludgateHill: 0,
+        cornhill: 0,
+        towerHill: 0,
+      },
+      adjustmentFactors: {
+        thamesWidthChange: 1,
+        walbrookWidthChange: 1,
+        ludgateHillHeightChange: 1,
+        cornhillHeightChange: 1,
+      },
+    };
+
+    if (!this.heightmapData || !this.resolution.width || !this.resolution.height) {
+      return result;
+    }
+
+    // Calculate Thames width
+    const thamesFeature = this.geologicalFeatures.get('thames');
+    if (thamesFeature) {
+      // Simplified width calculation - in a real implementation this would be more sophisticated
+      result.thamesWidth = this.calculateRiverWidth(thamesFeature);
+    }
+
+    // Calculate Walbrook width
+    const walbrookFeature = this.geologicalFeatures.get('walbrook');
+    if (walbrookFeature) {
+      result.walbrookWidth = this.calculateRiverWidth(walbrookFeature);
+    }
+
+    // Calculate hill heights
+    const ludgateHill =
+      this.geologicalFeatures.get('hill_0') || this.geologicalFeatures.get('ludgate_hill');
+    if (ludgateHill) {
+      result.hillHeights.ludgateHill = this.calculateHillHeight(ludgateHill);
+    }
+
+    const cornhill =
+      this.geologicalFeatures.get('hill_1') || this.geologicalFeatures.get('cornhill');
+    if (cornhill) {
+      result.hillHeights.cornhill = this.calculateHillHeight(cornhill);
+    }
+
+    const towerHill =
+      this.geologicalFeatures.get('hill_2') || this.geologicalFeatures.get('tower_hill');
+    if (towerHill) {
+      result.hillHeights.towerHill = this.calculateHillHeight(towerHill);
+    }
+
+    return result;
+  }
+
+  /**
+   * Calculate the average width of a river feature
+   * @private
+   */
+  private calculateRiverWidth(riverFeature: GeologicalFeature): number {
+    if (!this.heightmapData || !this.resolution.width || !this.resolution.height) {
+      return 0;
+    }
+
+    const { bounds } = riverFeature;
+    const avgHeight = this.calculateAverageHeight(bounds);
+
+    // Count points that are significantly lower than average (likely river points)
+    const rows: number[] = [];
+
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      let rowRiverPoints = 0;
+
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        if (x >= 0 && x < this.resolution.width && y >= 0 && y < this.resolution.height) {
+          const index = y * this.resolution.width + x;
+          // Consider points significantly lower than average as river points
+          if (this.heightmapData[index] < avgHeight * 0.8) {
+            rowRiverPoints++;
+          }
+        }
+      }
+
+      if (rowRiverPoints > 0) {
+        rows.push(rowRiverPoints);
+      }
+    }
+
+    // Calculate average width across rows
+    return rows.length > 0 ? rows.reduce((sum, width) => sum + width, 0) / rows.length : 0;
+  }
+
+  /**
+   * Calculate the average height of a hill feature
+   * @private
+   */
+  private calculateHillHeight(hillFeature: GeologicalFeature): number {
+    if (!this.heightmapData || !this.resolution.width || !this.resolution.height) {
+      return 0;
+    }
+
+    const { bounds } = hillFeature;
+    let maxHeight = 0;
+
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        if (x >= 0 && x < this.resolution.width && y >= 0 && y < this.resolution.height) {
+          const index = y * this.resolution.width + x;
+          maxHeight = Math.max(maxHeight, this.heightmapData[index]);
+        }
+      }
+    }
+
+    return maxHeight;
+  }
+
+  /**
+   * Calculate average height within bounds
+   * @private
+   */
+  private calculateAverageHeight(bounds: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): number {
+    if (!this.heightmapData || !this.resolution.width || !this.resolution.height) {
+      return 0;
+    }
+
+    let sum = 0;
+    let count = 0;
+
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        if (x >= 0 && x < this.resolution.width && y >= 0 && y < this.resolution.height) {
+          const index = y * this.resolution.width + x;
+          sum += this.heightmapData[index];
+          count++;
+        }
+      }
+    }
+
+    return count > 0 ? sum / count : 0;
   }
 
   /**

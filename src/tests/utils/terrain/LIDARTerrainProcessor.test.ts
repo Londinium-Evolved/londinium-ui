@@ -210,34 +210,30 @@ describe('LIDARTerrainProcessor', () => {
   test('applyHistoricalAdjustments should modify terrain based on era', async () => {
     await processor.processLIDARData(mockArrayBuffer, testResolution);
 
-    // Get initial heightmap data
-    const initialData = processor.getHeightmapData();
-    // Make a copy
-    const initialDataCopy = initialData ? new Float32Array(initialData) : null;
-
     // Apply Roman era adjustments
-    processor.applyHistoricalAdjustments('roman');
+    const adjustedTerrain = processor.applyHistoricalAdjustments('roman');
 
-    // Get updated heightmap data
-    const updatedData = processor.getHeightmapData();
+    // Assert that the Thames river is narrower in the Roman era (factor 0.7 in ROMAN_ERA_ADJUSTMENTS)
+    expect(adjustedTerrain.adjustmentFactors.thamesWidthChange).toBeCloseTo(0.7, 1);
 
-    // Verify that some changes were made
-    // This is a weak test since we can't easily predict the exact changes
-    expect(updatedData).not.toBeNull();
+    // Assert that hills have increased in height as expected
+    expect(adjustedTerrain.adjustmentFactors.ludgateHillHeightChange).toBeCloseTo(1.2, 1);
+    expect(adjustedTerrain.adjustmentFactors.cornhillHeightChange).toBeCloseTo(1.15, 1);
 
-    // There should be some differences between initial and updated data
-    if (initialDataCopy && updatedData) {
-      let differences = 0;
-      for (let i = 0; i < initialDataCopy.length; i++) {
-        if (initialDataCopy[i] !== updatedData[i]) {
-          differences++;
-        }
-      }
+    // Verify that specific features exist and have reasonable values
+    expect(adjustedTerrain.thamesWidth).toBeGreaterThan(0);
+    expect(adjustedTerrain.hillHeights.ludgateHill).toBeGreaterThan(0);
+    expect(adjustedTerrain.hillHeights.cornhill).toBeGreaterThan(0);
 
-      // Should have some differences (very implementation-dependent)
-      // In a real test we would verify specific adjustments
-      expect(differences).toBeGreaterThan(0);
-    }
+    // Test cyberpunk era adjustments
+    const cyberpunkTerrain = processor.applyHistoricalAdjustments('cyberpunk');
+
+    // Verify the era was correctly set
+    expect(cyberpunkTerrain.era).toBe('cyberpunk');
+
+    // Check that the correct adjustments were applied
+    // In cyberpunk era, megastructure foundations should change terrain
+    expect(cyberpunkTerrain.hillHeights).not.toEqual(adjustedTerrain.hillHeights);
   });
 
   test('dispose should clean up resources', () => {
