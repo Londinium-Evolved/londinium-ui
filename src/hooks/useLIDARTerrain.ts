@@ -152,6 +152,16 @@ export function useLIDARTerrain(): UseLIDARTerrainReturn {
       setError(null);
 
       try {
+        // Initial download complete
+        setProcessingStatus({
+          stage: 'initializing',
+          progress: 20,
+          message: 'Initializing LIDAR processor...',
+        });
+
+        // Add a small delay to show initialization progress
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
         setProcessingStatus({
           stage: 'processing',
           progress: 40,
@@ -174,13 +184,26 @@ export function useLIDARTerrain(): UseLIDARTerrainReturn {
 
         setProcessingStatus({
           stage: 'creating-geometry',
-          progress: 80,
+          progress: 70,
           message: 'Creating terrain geometry...',
         });
 
         // Create geometry and normal map
         const newGeometry = processorRef.current.createTerrainGeometry(settings.segmentSize);
+
+        setProcessingStatus({
+          stage: 'generating-normals',
+          progress: 80,
+          message: 'Generating normal maps...',
+        });
+
         const newNormalMap = processorRef.current.generateNormalMap();
+
+        setProcessingStatus({
+          stage: 'finalizing',
+          progress: 90,
+          message: 'Finalizing terrain...',
+        });
 
         // Clean up old resources before setting new ones
         if (terrainGeometry) terrainGeometry.dispose();
@@ -195,6 +218,9 @@ export function useLIDARTerrain(): UseLIDARTerrainReturn {
           progress: 100,
           message: 'Terrain processing complete',
         });
+
+        // Keep the complete message visible briefly before hiding
+        await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (err) {
         setError(`Failed to load terrain: ${err instanceof Error ? err.message : String(err)}`);
         setProcessingStatus({

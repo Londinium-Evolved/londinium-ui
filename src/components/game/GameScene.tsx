@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { Era } from '../../state/gameState';
 import { useStore } from '../../state/RootStore';
 import { Building } from '../../state/BuildingState';
+import TerrainMeshLOD from './terrain/TerrainMeshLOD';
+
 interface GameSceneProps {
   era: Era;
   eraProgress: number;
@@ -32,13 +34,38 @@ export const GameScene = observer(({ era, eraProgress }: GameSceneProps) => {
     }
   });
 
+  // Settings for the terrain
+  const terrainSettings = {
+    resolution: { width: 1024, height: 1024 },
+    segmentSize: 10,
+    heightScale: 1.0,
+    era: era,
+  };
+
+  // URL to LIDAR data - in production, this would be a real data source
+  // For development, use a sample or placeholder
+  const lidarDataUrl =
+    process.env.NODE_ENV === 'development'
+      ? '/sample_lidar_data.tiff'
+      : '/api/terrain/lidar/london';
+
   return (
     <group>
-      {/* Basic terrain */}
-      <mesh ref={terrainRef} position={[0, -1, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[1000, 1000]} />
-        <meshStandardMaterial color='#5d8b68' />
-      </mesh>
+      {/* Advanced terrain with LOD */}
+      <TerrainMeshLOD
+        dataUrl={lidarDataUrl}
+        settings={terrainSettings}
+        maxLODDistance={2000}
+        lodLevels={4}
+      />
+
+      {/* Fallback simple terrain for reference */}
+      {process.env.NODE_ENV === 'development' && (
+        <mesh position={[0, -10, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow visible={false}>
+          <planeGeometry args={[1000, 1000]} />
+          <meshStandardMaterial color='#5d8b68' />
+        </mesh>
+      )}
 
       {/* Grid for development purposes */}
       {process.env.NODE_ENV === 'development' && (
