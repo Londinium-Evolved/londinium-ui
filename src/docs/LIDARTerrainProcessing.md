@@ -131,6 +131,6 @@ The terrain processing system particularly handles these important geographical 
 
 - Uses GeoTIFF.js for parsing LIDAR data files
 - Implements bilinear interpolation for quality resampling
-- Uses THREE.js PlaneGeometry with displacement
+- Uses THREE.js PlaneGeometry with vertex displacement mapping, where vertices are displaced according to height data from LIDAR for a more detailed terrain representation.
 - Properly manages memory to handle large datasets
 - Adapts terrain appearance based on game era
