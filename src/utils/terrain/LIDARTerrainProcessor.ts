@@ -931,9 +931,11 @@ export class LIDARTerrainProcessor extends EventTarget {
     // Cache the geometry
     this.geometryCache.set(cacheKey, geometry);
 
-    console.log(
-      `Created terrain geometry with LOD level ${lodLevel} (${segmentsX}x${segmentsY} segments)`
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(
+        `Created terrain geometry with LOD level ${lodLevel} (${segmentsX}x${segmentsY} segments)`
+      );
+    }
 
     return geometry;
   }
