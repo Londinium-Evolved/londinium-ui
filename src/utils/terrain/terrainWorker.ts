@@ -3,8 +3,8 @@
  * This offloads computationally expensive tasks from the main thread
  */
 
-import { fromArrayBuffer } from 'geotiff';
 import { TerrainWorkerMessageType } from './types';
+import { fromArrayBuffer } from 'geotiff';
 import { resampleHeightmap, generateNormalMap } from './terrainUtils';
 
 // No longer need the local constant as we're importing it
@@ -150,202 +150,340 @@ function validateMessageData(type: string, data: Record<string, unknown>): void 
   }
 }
 
-self.onmessage = async (event) => {
-  const { type, data } = event.data;
-  let operationStage = 'initialization';
+/**
+ * Process requests in the worker thread
+ * Each worker handles terrain processing operations offloaded from the main thread
+ */
 
-  try {
-    // Log operation start for debugging
-    console.debug(`Terrain worker starting operation: ${type}`);
+// Track the worker's active status
+let isProcessing = false;
 
-    // Validate incoming data before processing
-    validateMessageData(type, data);
-    operationStage = 'processing';
-
-    switch (type) {
-      case TerrainWorkerMessageType.PROCESS_TIFF: {
-        await processTiff(data.tiffData, data.targetResolution);
-        break;
-      }
-
-      case TerrainWorkerMessageType.RESAMPLE: {
-        operationStage = 'resampling';
-        const resampledData = resampleHeightmap(
-          data.originalData,
-          data.originalWidth,
-          data.originalHeight,
-          data.targetWidth,
-          data.targetHeight
-        );
-
-        operationStage = 'result-transfer';
-        self.postMessage(
-          {
-            type: TerrainWorkerMessageType.RESULT,
-            data: { heightmapData: resampledData.buffer },
-            success: true,
-          },
-          { transfer: [resampledData.buffer] }
-        );
-        break;
-      }
-
-      case TerrainWorkerMessageType.APPLY_ADJUSTMENTS:
-        // To be implemented
-        throw Object.assign(
-          new Error('APPLY_ADJUSTMENTS operation not yet implemented in terrain worker'),
-          { details: { status: 'not_implemented' } }
-        );
-
-      case TerrainWorkerMessageType.GENERATE_NORMAL_MAP: {
-        operationStage = 'normal-map-generation';
-        const normalMapData = generateNormalMap(data.heightmapData, data.width, data.height);
-
-        operationStage = 'result-transfer';
-        self.postMessage(
-          {
-            type: TerrainWorkerMessageType.RESULT,
-            data: { normalMapData: normalMapData.buffer },
-            success: true,
-          },
-          { transfer: [normalMapData.buffer] }
-        );
-        break;
-      }
-
-      default:
-        throw Object.assign(new Error(`Unknown message type: ${type}`), {
-          details: { availableTypes: Object.values(TerrainWorkerMessageType) },
-        });
-    }
-
-    // Log operation completion
-    console.debug(`Terrain worker completed operation: ${type}`);
-  } catch (error: unknown) {
-    // Create detailed error report
-    const errorData = createDetailedError(error, type, operationStage);
-
-    // Log error in worker for debugging
-    console.error(`Terrain worker error during ${type} (${operationStage}):`, errorData);
-
-    // Send error back to main thread
-    self.postMessage({
-      type: TerrainWorkerMessageType.ERROR,
-      data: errorData,
-      success: false,
-    });
-  }
-};
+// Store active task information for diagnostics
+let activeTask: {
+  type: string;
+  startTime: number;
+  progress: number;
+} | null = null;
 
 /**
- * Process GeoTIFF data in the worker
+ * Handle errors in a structured way
  */
-async function processTiff(
-  tiffData: ArrayBuffer,
-  targetResolution: { width: number; height: number }
-) {
-  let processingStage = 'preparation';
+function handleError(message: string, operation: string, stack?: string): void {
+  postMessage({
+    type: 'error',
+    data: {
+      message,
+      operation,
+      timestamp: new Date().toISOString(),
+      stack,
+      type: 'terrain_worker_error',
+    },
+  });
+}
 
+/**
+ * Report processing progress back to main thread
+ */
+function reportProgress(operation: string, progress: number, message?: string): void {
+  postMessage({
+    type: 'progress',
+    data: {
+      operation,
+      progress,
+      message,
+      timestamp: new Date().toISOString(),
+    },
+  });
+
+  // Update active task info
+  if (activeTask) {
+    activeTask.progress = progress;
+  }
+}
+
+/**
+ * Validates worker message to ensure it has the required fields
+ */
+function validateWorkerMessage(
+  event: MessageEvent
+): { type: TerrainWorkerMessageType; data: unknown } | null {
+  if (!event || !event.data) {
+    handleError('Invalid worker message: empty or missing data', 'validate_message');
+    return null;
+  }
+
+  const { type, data } = event.data;
+
+  if (!type) {
+    handleError('Invalid worker message: missing type field', 'validate_message');
+    return null;
+  }
+
+  return { type, data };
+}
+
+/**
+ * Process a GeoTIFF file containing LIDAR data
+ */
+async function processTiff(data: unknown): Promise<void> {
   try {
-    // Parse TIFF data
-    processingStage = 'tiff-parsing';
-    const tiff = await fromArrayBuffer(tiffData);
-    if (!tiff) {
-      throw Object.assign(
-        new Error('Failed to parse TIFF from ArrayBuffer - invalid file format'),
-        { details: { dataSize: tiffData.byteLength } }
-      );
+    if (!data || typeof data !== 'object') {
+      throw new Error('No data provided for processing');
     }
 
-    // Get image from TIFF
-    processingStage = 'image-extraction';
-    const image = await tiff.getImage();
-    if (!image) {
-      throw Object.assign(new Error('Could not extract image from TIFF file'), {
-        details: { tiffInfo: 'TIFF parsed but no image could be extracted' },
-      });
+    // Type assertion after validation
+    const typedData = data as {
+      tiffData: ArrayBuffer;
+      targetResolution: { width: number; height: number };
+    };
+    const { tiffData, targetResolution } = typedData;
+
+    if (!tiffData) {
+      throw new Error('No TIFF data provided');
     }
+
+    if (!targetResolution || !targetResolution.width || !targetResolution.height) {
+      throw new Error('Invalid target resolution');
+    }
+
+    // Process TIFF data
+    reportProgress('process_tiff', 10, 'Loading GeoTIFF...');
+    const tiff = await fromArrayBuffer(tiffData);
+
+    reportProgress('process_tiff', 30, 'Reading TIFF data...');
+    const image = await tiff.getImage();
+    const rasters = await image.readRasters();
 
     // Extract raster data
-    processingStage = 'raster-reading';
-    const rasters = await image.readRasters();
-    if (!rasters || rasters.length === 0) {
-      throw Object.assign(new Error('No raster data found in TIFF image'), {
-        details: { imageInfo: { width: image.getWidth(), height: image.getHeight() } },
-      });
-    }
-
-    // Process dimensions
-    processingStage = 'dimensions-verification';
+    reportProgress('process_tiff', 50, 'Extracting height data...');
     const originalData = rasters[0] as Uint16Array;
     const originalWidth = image.getWidth();
     const originalHeight = image.getHeight();
 
+    // Validate data dimensions
     if (originalWidth <= 0 || originalHeight <= 0) {
-      throw Object.assign(
-        new Error(`Invalid dimensions in TIFF: ${originalWidth}x${originalHeight}`),
-        { details: { width: originalWidth, height: originalHeight } }
+      throw new Error(`Invalid TIFF dimensions: ${originalWidth}x${originalHeight}`);
+    }
+
+    reportProgress('process_tiff', 60, 'Resampling heightmap...');
+
+    // Use parallel processing for large heightmaps
+    let heightmapData: Float32Array;
+
+    // For large heightmaps, process in chunks
+    if (targetResolution.width * targetResolution.height > 1000000) {
+      heightmapData = await processHeightmapInParallel(
+        originalData,
+        originalWidth,
+        originalHeight,
+        targetResolution.width,
+        targetResolution.height
+      );
+    } else {
+      // For smaller heightmaps, use the standard algorithm
+      heightmapData = resampleHeightmap(
+        originalData,
+        originalWidth,
+        originalHeight,
+        targetResolution.width,
+        targetResolution.height
       );
     }
 
-    // Log data characteristics for debugging
-    console.debug(
-      `TIFF data loaded: ${originalWidth}x${originalHeight}, resampling to ${targetResolution.width}x${targetResolution.height}`
-    );
+    reportProgress('process_tiff', 90, 'Generating normal map...');
 
-    // Perform resampling
-    processingStage = 'resampling';
-    const heightmapData = resampleHeightmap(
-      originalData,
-      originalWidth,
-      originalHeight,
+    // Generate normal map
+    const normalMap = generateNormalMap(
+      heightmapData,
       targetResolution.width,
       targetResolution.height
     );
 
-    // Send result back to main thread
-    processingStage = 'result-transfer';
-    self.postMessage(
+    reportProgress('process_tiff', 100, 'Processing complete');
+
+    // Return processed data to main thread
+    // Use correct transferable format for postMessage
+    postMessage(
       {
-        type: TerrainWorkerMessageType.PROCESS_TIFF_DONE,
+        type: 'process_tiff_done',
         data: {
           heightmapData: heightmapData.buffer,
+          normalMap: normalMap.buffer,
           width: targetResolution.width,
           height: targetResolution.height,
-          originalDimensions: {
-            width: originalWidth,
-            height: originalHeight,
-          },
-          metadata: {
-            processedAt: new Date().toISOString(),
-            dataStats: {
-              min: Math.min(...Array.from(heightmapData)),
-              max: Math.max(...Array.from(heightmapData)),
-            },
-          },
         },
-        success: true,
       },
-      { transfer: [heightmapData.buffer] }
-    );
-  } catch (error: unknown) {
-    // Wrap error with context about which processing stage failed
-    throw Object.assign(
-      new Error(
-        `Failed to process TIFF during ${processingStage}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      ),
       {
-        details: {
-          stage: processingStage,
-          originalError: error instanceof Error ? error.message : String(error),
-          targetResolution,
-        },
+        transfer: [heightmapData.buffer, normalMap.buffer],
       }
+    );
+  } catch (error) {
+    console.error('Terrain worker error:', error);
+    handleError(
+      error instanceof Error ? error.message : String(error),
+      'process_tiff',
+      error instanceof Error ? error.stack : undefined
     );
   }
 }
+
+/**
+ * Process a heightmap in parallel chunks using the resampleHeightmap function
+ * This divides the work into sections to better utilize CPU resources
+ */
+async function processHeightmapInParallel(
+  originalData: Uint16Array,
+  originalWidth: number,
+  originalHeight: number,
+  targetWidth: number,
+  targetHeight: number
+): Promise<Float32Array> {
+  // Create the output heightmap
+  const heightmapData = new Float32Array(targetWidth * targetHeight);
+
+  // Determine how many chunks to divide the processing into
+  // More chunks means more overhead but better concurrency
+  const numChunks = navigator.hardwareConcurrency ? Math.min(navigator.hardwareConcurrency, 8) : 4;
+
+  // Calculate the height of each chunk
+  const chunkHeight = Math.ceil(targetHeight / numChunks);
+
+  // Process each chunk
+  const chunkPromises: Promise<{ startY: number; data: Float32Array }>[] = [];
+
+  for (let i = 0; i < numChunks; i++) {
+    const startY = i * chunkHeight;
+    const endY = Math.min(startY + chunkHeight, targetHeight);
+    const chunkTargetHeight = endY - startY;
+
+    // Skip empty chunks
+    if (chunkTargetHeight <= 0) continue;
+
+    // Calculate the source area in the original heightmap
+    const originalStartY = Math.floor((startY * originalHeight) / targetHeight);
+    const originalEndY = Math.ceil((endY * originalHeight) / targetHeight);
+    const originalChunkHeight = originalEndY - originalStartY;
+
+    // Create a view of the original data for this chunk
+    const chunkOriginalData = new Uint16Array(originalWidth * originalChunkHeight);
+
+    // Copy data for this chunk
+    for (let y = 0; y < originalChunkHeight; y++) {
+      const srcY = originalStartY + y;
+      if (srcY < originalHeight) {
+        const srcOffset = srcY * originalWidth;
+        const destOffset = y * originalWidth;
+        for (let x = 0; x < originalWidth; x++) {
+          chunkOriginalData[destOffset + x] = originalData[srcOffset + x];
+        }
+      }
+    }
+
+    // Process this chunk (as a promise to allow parallel execution)
+    const chunkPromise = new Promise<{ startY: number; data: Float32Array }>((resolve) => {
+      // Process the chunk
+      const chunkResult = resampleHeightmap(
+        chunkOriginalData,
+        originalWidth,
+        originalChunkHeight,
+        targetWidth,
+        chunkTargetHeight
+      );
+
+      // Return the result along with its position information
+      resolve({
+        startY,
+        data: chunkResult,
+      });
+    });
+
+    chunkPromises.push(chunkPromise);
+
+    // Report progress for each chunk
+    reportProgress(
+      'process_tiff_parallel',
+      60 + Math.round((i / numChunks) * 25),
+      `Processing chunk ${i + 1}/${numChunks}...`
+    );
+  }
+
+  // Wait for all chunks to complete
+  const results = await Promise.all(chunkPromises);
+
+  // Combine the results into the final heightmap
+  for (const { startY, data } of results) {
+    const chunkHeight = data.length / targetWidth;
+
+    for (let y = 0; y < chunkHeight; y++) {
+      const destY = startY + y;
+      if (destY < targetHeight) {
+        const srcOffset = y * targetWidth;
+        const destOffset = destY * targetWidth;
+
+        for (let x = 0; x < targetWidth; x++) {
+          heightmapData[destOffset + x] = data[srcOffset + x];
+        }
+      }
+    }
+  }
+
+  return heightmapData;
+}
+
+/**
+ * Initialize the worker
+ */
+self.onmessage = async (event: MessageEvent) => {
+  try {
+    // Skip if we're already processing something
+    if (isProcessing) {
+      postMessage({
+        type: 'worker_busy',
+        data: {
+          message: 'Worker is busy processing another request',
+          currentOperation: activeTask?.type,
+          progress: activeTask?.progress,
+          startTime: activeTask?.startTime,
+        },
+      });
+      return;
+    }
+
+    // Validate the incoming message
+    const message = validateWorkerMessage(event);
+    if (!message) return;
+
+    const { type, data } = message;
+
+    // Mark worker as busy and store task info
+    isProcessing = true;
+    activeTask = {
+      type: type,
+      startTime: Date.now(),
+      progress: 0,
+    };
+
+    // Process the message based on its type
+    switch (type) {
+      case 'process_tiff':
+        await processTiff(data);
+        break;
+      default:
+        handleError(`Unknown message type: ${type}`, 'handle_message');
+    }
+  } catch (error) {
+    console.error('Worker message handler error:', error);
+    handleError(
+      error instanceof Error ? error.message : String(error),
+      'worker_message_handler',
+      error instanceof Error ? error.stack : undefined
+    );
+  } finally {
+    // Mark worker as available again
+    isProcessing = false;
+    activeTask = null;
+  }
+};
 
 // The resampleHeightmap and generateNormalMap functions have been moved to terrainUtils.ts
 // and are now imported at the top of this file

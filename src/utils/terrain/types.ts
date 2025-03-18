@@ -1,8 +1,8 @@
 import { Era } from '../../state/types';
 
 // Constants for terrain processing
-export const HEIGHT_SCALE = 100; // Named constant for configurable height scaling
-export const NODATA_VALUE = 32768; // Indicates missing data in elevation models
+export const HEIGHT_SCALE = 1.0; // Scale factor for visualizing terrain
+export const NODATA_VALUE = -9999; // Indicates missing data in elevation models
 
 export interface Resolution {
   width: number;
@@ -11,7 +11,7 @@ export interface Resolution {
 
 export interface GeologicalFeature {
   name: string;
-  type: 'river' | 'hill' | 'valley' | 'plain';
+  type: string;
   bounds: {
     minX: number;
     minY: number;
@@ -45,39 +45,80 @@ export interface TerrainAdjustment {
  * Used to track and validate terrain adjustments
  */
 export interface TerrainFeatureMetrics {
-  era: Era;
-  thamesWidth: number;
-  walbrookWidth: number;
-  hillHeights: {
-    ludgateHill: number;
-    cornhill: number;
-    towerHill: number;
+  area: number;
+  averageHeight: number;
+  range: {
+    min: number;
+    max: number;
   };
-  adjustmentFactors: {
-    thamesWidthChange: number;
-    walbrookWidthChange: number;
-    ludgateHillHeightChange: number;
-    cornhillHeightChange: number;
-  };
+  slope: number;
 }
 
 // Historical adjustment constants
-export const ROMAN_ERA_ADJUSTMENTS: TerrainAdjustment[] = [
-  { type: 'river', name: 'thames', factor: 0.7 }, // Thames was narrower
-  { type: 'river', name: 'walbrook', factor: 1.5 }, // Walbrook was more prominent
-  { type: 'river', name: 'fleet', factor: 1.3 }, // Fleet was wider and navigable
-  { type: 'elevation', name: 'modern_infrastructure', factor: 0.8 },
-  { type: 'elevation', name: 'ludgate_hill', factor: 1.2 }, // More prominent
-  { type: 'elevation', name: 'cornhill', factor: 1.15 }, // More prominent
-];
+export const ROMAN_ERA_ADJUSTMENTS = {
+  // London before extensive modifications
+  heightScale: 1.0,
+  // Regions that were marshland in Roman times
+  wetlandMasks: [
+    {
+      center: { x: 500, y: 300 }, // Example coordinates
+      radius: 100,
+      depth: 5.0, // Depression depth in meters
+    },
+  ],
+  // Roman walls and fortifications - raised areas
+  artificialStructures: [
+    {
+      path: [
+        { x: 450, y: 450 },
+        { x: 550, y: 450 },
+        { x: 550, y: 550 },
+        { x: 450, y: 550 },
+      ],
+      height: 3.0, // Height in meters
+      width: 10.0, // Width in meters
+    },
+  ],
+};
 
-export const CYBERPUNK_ERA_ADJUSTMENTS: TerrainAdjustment[] = [
-  { type: 'elevation', name: 'megastructure_foundations', factor: 1.2 },
-];
+export const CYBERPUNK_ERA_ADJUSTMENTS = {
+  // Future London with extreme modifications
+  heightScale: 1.2, // Slightly exaggerated terrain
+  // Regions converted to water (flooded low-lying areas)
+  floodedRegions: [
+    {
+      bounds: { minX: 400, minY: 200, maxX: 600, maxY: 300 },
+      depth: 10.0, // Water depth in meters
+    },
+  ],
+  // Raised platforms and mega-structures
+  megaStructures: [
+    {
+      center: { x: 500, y: 500 },
+      radius: 150,
+      height: 100.0, // Height in meters
+    },
+  ],
+};
 
 // Mask data for various features (simplified for example)
 export const MODERN_INFRASTRUCTURE_MASK = {
-  // Coordinates would be defined here
+  // Areas where modern infrastructure should be masked/smoothed
+  buildings: [
+    {
+      bounds: { minX: 300, minY: 300, maxX: 350, maxY: 350 },
+      height: 20.0, // Building height in meters
+    },
+  ],
+  roads: [
+    {
+      path: [
+        { x: 200, y: 200 },
+        { x: 800, y: 800 },
+      ],
+      width: 15.0, // Road width in meters
+    },
+  ],
 };
 
 export const MEGASTRUCTURE_FOUNDATION_MASK = {
@@ -90,13 +131,34 @@ export enum TerrainWorkerMessageType {
   PROCESS_TIFF_DONE = 'process_tiff_done',
   RESAMPLE = 'resample',
   GENERATE_NORMAL_MAP = 'generate_normal_map',
+  NORMAL_MAP_DONE = 'normal_map_done',
   APPLY_ADJUSTMENTS = 'apply_adjustments',
+  ADJUSTMENTS_DONE = 'adjustments_done',
   RESULT = 'result',
   ERROR = 'error',
   PROGRESS = 'progress',
+  WORKER_BUSY = 'worker_busy',
 }
 
 export interface TerrainWorkerMessage {
   type: TerrainWorkerMessageType;
   data: unknown;
 }
+
+/**
+ * Parameters for terrain generation
+ */
+export interface TerrainGenerationParams {
+  resolution: Resolution;
+  adjustments?: {
+    terraceStrength?: number;
+    smoothing?: number;
+    erosion?: number;
+  };
+}
+
+/**
+ * Import fromArrayBuffer from geotiff package
+ * This is a workaround to avoid importing the entire geotiff package in the worker
+ */
+export { fromArrayBuffer } from 'geotiff';
