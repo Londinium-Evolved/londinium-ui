@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { useThree, useFrame } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
 import { useLIDARTerrain } from '../../../hooks/useLIDARTerrain';
 import { TerrainSettings } from '../../../utils/terrain/types';
 import { useRootStore } from '../../../hooks/useRootStore';
@@ -33,7 +34,7 @@ export const TerrainMeshLOD: React.FC<TerrainMeshLODProps> = ({
   const isMounted = useRef(true);
 
   // Use our custom LIDAR terrain hook
-  const { isLoading, error, terrainGeometry, normalMap, processor, loadTerrain } =
+  const { isLoading, error, terrainGeometry, normalMap, processor, processingStatus, loadTerrain } =
     useLIDARTerrain();
 
   // Material that adapts to the current era
@@ -166,6 +167,73 @@ export const TerrainMeshLOD: React.FC<TerrainMeshLODProps> = ({
     }
   });
 
+  // Advanced loading indicator component
+  const LoadingIndicator = useMemo(() => {
+    if (!isLoading && !processingStatus) return null;
+
+    const progress = processingStatus?.progress || 0;
+    const message = processingStatus?.message || 'Loading terrain...';
+    const stage = processingStatus?.stage || 'loading';
+    const isError = error !== null || stage === 'error';
+
+    return (
+      <group position={[0, 10, 0]}>
+        {/* Loading ring */}
+        <mesh rotation={[0, progress / 50, 0]}>
+          <torusGeometry args={[5, 0.5, 16, 50]} />
+          <meshStandardMaterial
+            color={isError ? '#ff3333' : '#4488ff'}
+            wireframe={isError}
+            emissive={isError ? '#ff0000' : '#0066ff'}
+            emissiveIntensity={0.5}
+          />
+        </mesh>
+
+        {/* Progress indicator */}
+        <mesh position={[0, 0, 0.5]}>
+          <circleGeometry args={[4, 32]} />
+          <meshStandardMaterial color='#333333' />
+        </mesh>
+
+        <mesh position={[0, 0, 0.6]} rotation={[0, 0, Math.PI * 1.5]}>
+          <ringGeometry args={[3, 3.8, 32, 1, 0, Math.PI * 2 * (progress / 100)]} />
+          <meshStandardMaterial
+            color={isError ? '#ff3333' : '#22aaff'}
+            emissive={isError ? '#ff0000' : '#0066ff'}
+            emissiveIntensity={0.8}
+          />
+        </mesh>
+
+        {/* Status text */}
+        <Text
+          position={[0, -6, 0]}
+          fontSize={1.2}
+          color={isError ? '#ff3333' : '#ffffff'}
+          anchorX='center'
+          anchorY='middle'>
+          {isError ? error || 'Error loading terrain' : message}
+        </Text>
+
+        {/* Loading percentage */}
+        <Text position={[0, 0, 0.7]} fontSize={2} color='#ffffff' anchorX='center' anchorY='middle'>
+          {isError ? 'ERROR' : `${Math.round(progress)}%`}
+        </Text>
+
+        {/* Small stage indicator */}
+        <Text
+          position={[0, -8, 0]}
+          fontSize={0.8}
+          color='#aaaaaa'
+          anchorX='center'
+          anchorY='middle'>
+          {`Stage: ${stage}`}
+        </Text>
+
+        <pointLight intensity={2} distance={20} color={isError ? '#ff3333' : '#4488ff'} />
+      </group>
+    );
+  }, [isLoading, processingStatus, error]);
+
   if (error) {
     return (
       <group ref={terrainGroupRef}>
@@ -178,6 +246,10 @@ export const TerrainMeshLOD: React.FC<TerrainMeshLODProps> = ({
           <sphereGeometry args={[2, 16, 16]} />
           <meshStandardMaterial color='red' />
         </mesh>
+        {/* Display error message */}
+        <Text position={[0, 10, 0]} fontSize={2} color='red' anchorX='center' anchorY='middle'>
+          {error}
+        </Text>
       </group>
     );
   }
@@ -185,10 +257,14 @@ export const TerrainMeshLOD: React.FC<TerrainMeshLODProps> = ({
   // Render loading state or terrain
   return (
     <group ref={terrainGroupRef}>
+      {/* Show loading indicator while loading */}
+      {isLoading && LoadingIndicator}
+
+      {/* Basic geometry during loading as a placeholder */}
       {isLoading && (
         <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[100, 100, 10, 10]} />
-          <meshStandardMaterial color='blue' wireframe opacity={0.5} transparent />
+          <meshStandardMaterial color='blue' wireframe opacity={0.2} transparent />
         </mesh>
       )}
 
