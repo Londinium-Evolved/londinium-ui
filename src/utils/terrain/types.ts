@@ -87,12 +87,13 @@ export const MEGASTRUCTURE_FOUNDATION_MASK = {
 // Worker message types
 export enum TerrainWorkerMessageType {
   PROCESS_TIFF = 'process_tiff',
-  RESAMPLE = 'resample',
-  APPLY_ADJUSTMENTS = 'apply_adjustments',
-  GENERATE_NORMAL_MAP = 'generate_normal_map',
-  RESULT = 'result',
   PROCESS_TIFF_DONE = 'process_tiff_done',
+  RESAMPLE = 'resample',
+  GENERATE_NORMAL_MAP = 'generate_normal_map',
+  APPLY_ADJUSTMENTS = 'apply_adjustments',
+  RESULT = 'result',
   ERROR = 'error',
+  PROGRESS = 'progress',
 }
 
 export interface TerrainWorkerMessage {

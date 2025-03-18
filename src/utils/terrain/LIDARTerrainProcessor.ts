@@ -7,15 +7,28 @@ import {
   CYBERPUNK_ERA_ADJUSTMENTS,
   MODERN_INFRASTRUCTURE_MASK,
   TerrainFeatureMetrics,
+  TerrainWorkerMessageType,
 } from './types';
 import { Era } from '../../state/types';
 import { resampleHeightmap, generateNormalMap } from './terrainUtils';
 
 /**
+ * Event interface for processing status updates
+ */
+export interface ProcessingStatusEvent extends CustomEvent {
+  detail: {
+    stage: string;
+    progress: number;
+    message: string;
+    timestamp: string;
+  };
+}
+
+/**
  * LIDARTerrainProcessor handles the processing of Digital Terrain Model (DTM)
  * LIDAR data to create an accurate terrain representation for the game.
  */
-export class LIDARTerrainProcessor {
+export class LIDARTerrainProcessor extends EventTarget {
   private heightmapData: Float32Array | null = null;
   private resolution: Resolution = { width: 0, height: 0 };
   private geologicalFeatures: Map<string, GeologicalFeature> = new Map();
@@ -23,6 +36,8 @@ export class LIDARTerrainProcessor {
   private isProcessing: boolean = false;
 
   constructor() {
+    super(); // Initialize EventTarget
+
     // Initialize the WebWorker if supported
     if (typeof Worker !== 'undefined') {
       this.worker = new Worker(new URL('./terrainWorker.ts', import.meta.url), { type: 'module' });
@@ -31,17 +46,92 @@ export class LIDARTerrainProcessor {
       this.worker.onmessage = (event) => {
         const { type, data } = event.data;
 
-        if (type === 'error') {
+        if (type === TerrainWorkerMessageType.ERROR) {
           console.error('Worker error:', data);
-        } else if (type === 'result') {
+
+          // Dispatch error event
+          this.dispatchEvent(
+            new CustomEvent('processingStatusUpdate', {
+              detail: {
+                stage: 'error',
+                progress: 0,
+                message: `Worker error: ${data.message}`,
+                timestamp: new Date().toISOString(),
+              },
+            })
+          );
+        } else if (type === TerrainWorkerMessageType.RESULT) {
           if (data.heightmapData) {
             this.heightmapData = new Float32Array(data.heightmapData);
           }
+
+          // Dispatch progress event
+          this.dispatchEvent(
+            new CustomEvent('processingStatusUpdate', {
+              detail: {
+                stage: 'processing',
+                progress: 70,
+                message: 'Processing worker results...',
+                timestamp: new Date().toISOString(),
+              },
+            })
+          );
+
+          this.isProcessing = false;
+        } else if (type === TerrainWorkerMessageType.PROCESS_TIFF_DONE) {
+          if (data.heightmapData) {
+            this.heightmapData = new Float32Array(data.heightmapData);
+            this.resolution = {
+              width: data.width,
+              height: data.height,
+            };
+
+            // Dispatch completion event
+            this.dispatchEvent(
+              new CustomEvent('processingStatusUpdate', {
+                detail: {
+                  stage: 'tiffProcessed',
+                  progress: 50,
+                  message: 'TIFF processing complete',
+                  timestamp: new Date().toISOString(),
+                },
+              })
+            );
+
+            this.isProcessing = false;
+          }
+
           if (data.geologicalFeatures) {
             this.geologicalFeatures = new Map(data.geologicalFeatures);
           }
-          this.isProcessing = false;
+        } else if (type === TerrainWorkerMessageType.PROGRESS) {
+          // Handle progress updates from worker
+          this.dispatchEvent(
+            new CustomEvent('processingStatusUpdate', {
+              detail: {
+                stage: data.stage,
+                progress: data.progress,
+                message: data.message,
+                timestamp: new Date().toISOString(),
+              },
+            })
+          );
         }
+      };
+
+      // Handle worker errors
+      this.worker.onerror = (error) => {
+        console.error('Worker error:', error);
+        this.dispatchEvent(
+          new CustomEvent('processingStatusUpdate', {
+            detail: {
+              stage: 'error',
+              progress: 0,
+              message: `Worker initialization error: ${error.message || 'Unknown error'}`,
+              timestamp: new Date().toISOString(),
+            },
+          })
+        );
       };
     }
   }
