@@ -493,7 +493,7 @@ export class LIDARTerrainProcessor {
   }
 
   /**
-   * Clean up resources when no longer needed
+   * Clean up resources used by the processor
    */
   dispose(): void {
     if (this.worker) {
@@ -503,6 +503,7 @@ export class LIDARTerrainProcessor {
 
     this.heightmapData = null;
     this.geologicalFeatures.clear();
+    this.geologicalFeatures = null as unknown as Map<string, GeologicalFeature>;
   }
 
   // ------------------------

@@ -237,8 +237,30 @@ describe('LIDARTerrainProcessor', () => {
   });
 
   test('dispose should clean up resources', () => {
-    // Nothing to check in our mock implementation, but we can ensure it doesn't throw
-    expect(() => processor.dispose()).not.toThrow();
+    // Initialize the heightmapData and geologicalFeatures with dummy values
+    // We need to first process some data to have a worker
+    return processor.processLIDARData(mockArrayBuffer, testResolution).then(() => {
+      // Set up spy on terminate method of all Worker instances
+      const terminateSpy = jest.spyOn(MockWorker.prototype, 'terminate');
+
+      // Ensure we have some data to clean up
+      expect(processor.getHeightmapData()).not.toBeNull();
+
+      // Call the dispose method
+      processor.dispose();
+
+      // Verify that the worker's terminate method was called
+      expect(terminateSpy).toHaveBeenCalled();
+
+      // Verify that heightmapData has been cleared
+      expect(processor.getHeightmapData()).toBeNull();
+
+      // Verify that geologicalFeatures have been cleared
+      expect(processor.getGeologicalFeatures().size).toBe(0);
+
+      // Clean up spy
+      terminateSpy.mockRestore();
+    });
   });
 
   // New error handling tests
