@@ -502,8 +502,7 @@ export class LIDARTerrainProcessor {
     }
 
     this.heightmapData = null;
-    this.geologicalFeatures.clear();
-    this.geologicalFeatures = null as unknown as Map<string, GeologicalFeature>;
+    this.geologicalFeatures = new Map();
   }
 
   // ------------------------
