@@ -101,7 +101,14 @@ To specify the desired era in the settings, use the following format:
 - **Roman Era**: Narrower Thames, more prominent Walbrook stream, restored historical elevations
 - **Cyberpunk Era**: Modified terrain for megastructure foundations
 
-## Performance Considerations
+## Specifying Eras
+
+To specify the desired era in the settings, use the following format:
+
+```json
+{
+  "era": "roman" // or "cyberpunk"
+}
 
 The system is designed with performance in mind:
 
