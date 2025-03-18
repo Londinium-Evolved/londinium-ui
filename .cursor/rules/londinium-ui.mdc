@@ -12,6 +12,9 @@ architecture: react-three-fiber
 focus: procedural-generation
 optimization-priority: render-pipeline
 
+# Preconditions
+- Always try to use an MCP tool before
+
 
 ## Core Development Principles
 principles:
