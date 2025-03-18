@@ -394,7 +394,7 @@ export class LIDARTerrainProcessor extends EventTarget {
       .findConnectedRegions(-Infinity, similarityThreshold)
       .filter((region) => {
         // Calculate average height
-        const avgHeight = region.avgHeight;
+        const { avgHeight } = region;
         // Only consider regions with height below the low threshold
         return avgHeight < lowThreshold;
       });

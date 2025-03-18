@@ -469,7 +469,7 @@ describe('LIDARTerrainProcessor', () => {
       heightmapData: Uint16Array
     ): Promise<Map<string, GeologicalFeature>> => {
       // Create a buffer from the heightmap data
-      const buffer = heightmapData.buffer;
+      const { buffer } = heightmapData;
 
       // Mock the GeoTIFF processing for this specific test
       const fromArrayBufferMock = geotiff.fromArrayBuffer as jest.Mock;
