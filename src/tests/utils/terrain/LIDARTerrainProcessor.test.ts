@@ -465,9 +465,9 @@ describe('LIDARTerrainProcessor', () => {
     /**
      * Helper method to process heightmap data and extract geological features
      */
-    async function processHeightmapAndGetFeatures(
+    const processHeightmapAndGetFeatures = async (
       heightmapData: Uint16Array
-    ): Promise<Map<string, GeologicalFeature>> {
+    ): Promise<Map<string, GeologicalFeature>> => {
       // Create a buffer from the heightmap data
       const buffer = heightmapData.buffer;
 
@@ -486,7 +486,7 @@ describe('LIDARTerrainProcessor', () => {
 
       // Return the geological features
       return processor.getGeologicalFeatures();
-    }
+    };
 
     test('should identify rivers in the heightmap data', async () => {
       // Process the river heightmap data
