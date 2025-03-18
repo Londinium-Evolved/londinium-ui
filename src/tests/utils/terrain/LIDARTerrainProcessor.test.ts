@@ -152,6 +152,27 @@ class MockWorker {
     }, 10);
   }
 
+  // Method to simulate detailed errors with the new format
+  simulateDetailedError(errorData: Record<string, unknown>) {
+    setTimeout(() => {
+      const errorResponse = {
+        data: {
+          type: 'error',
+          data: errorData,
+        },
+      } as MessageEvent<unknown>;
+
+      // Call both the onmessage handler and any addEventListener handlers
+      if (this.onmessage) {
+        this.onmessage(errorResponse);
+      }
+
+      this.messageHandlers.forEach((handler) => {
+        handler(errorResponse);
+      });
+    }, 10);
+  }
+
   terminate() {
     // Clear message handlers
     this.messageHandlers = [];
@@ -366,5 +387,33 @@ describe('LIDARTerrainProcessor', () => {
 
     // Cleanup
     processorWithWorker.dispose();
+  });
+
+  test('processLIDARData should handle detailed worker errors', async () => {
+    // Get a reference to the worker for sending custom errors
+    const processorAny = processor as unknown;
+    const mockWorker = (processorAny as { worker: MockWorker }).worker;
+
+    // Override the postMessage method to trigger a detailed error
+    const originalPostMessage = mockWorker.postMessage;
+    mockWorker.postMessage = function () {
+      // Call the simulateDetailedError method instead of normal processing
+      this.simulateDetailedError({
+        message: 'Invalid TIFF format',
+        type: 'FormatError',
+        operation: 'process_tiff',
+        timestamp: new Date().toISOString(),
+        stack: 'Error: Invalid TIFF format\n    at processTiff (terrainWorker.ts:83)',
+      });
+      return undefined;
+    };
+
+    // The promise should be rejected with the detailed error message
+    await expect(processor.processLIDARData(mockArrayBuffer, testResolution)).rejects.toThrow(
+      'Terrain processing error (process_tiff): Invalid TIFF format'
+    );
+
+    // Restore original method
+    mockWorker.postMessage = originalPostMessage;
   });
 });

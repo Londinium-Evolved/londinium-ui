@@ -3,7 +3,6 @@ import { fromArrayBuffer } from 'geotiff';
 import {
   GeologicalFeature,
   Resolution,
-  TerrainAdjustment,
   ROMAN_ERA_ADJUSTMENTS,
   CYBERPUNK_ERA_ADJUSTMENTS,
   MODERN_INFRASTRUCTURE_MASK,
@@ -82,12 +81,34 @@ export class LIDARTerrainProcessor {
                 this.resolution = targetResolution;
                 resolve();
               } else {
-                reject(new Error('Processing failed'));
+                reject(new Error('Processing failed: No heightmap data returned from worker'));
               }
               this.worker?.removeEventListener('message', messageHandler);
             } else if (type === 'error') {
               this.isProcessing = false;
-              reject(new Error(data));
+              // Handle the new detailed error format
+              let errorMessage = 'Unknown error in terrain processing';
+
+              if (typeof data === 'string') {
+                // Handle legacy format for backwards compatibility
+                errorMessage = data;
+              } else if (data && typeof data === 'object') {
+                // New detailed error format
+                errorMessage = `Terrain processing error (${
+                  data.operation || 'unknown operation'
+                }): ${data.message || 'Unknown error'}`;
+
+                // Log additional details for debugging
+                console.error('Terrain worker error details:', {
+                  message: data.message,
+                  type: data.type,
+                  operation: data.operation,
+                  timestamp: data.timestamp,
+                  stack: data.stack,
+                });
+              }
+
+              reject(new Error(errorMessage));
               this.worker?.removeEventListener('message', messageHandler);
             }
           };
@@ -102,35 +123,44 @@ export class LIDARTerrainProcessor {
       }
 
       // Fallback to processing on the main thread if no worker
-      const tiff = await fromArrayBuffer(tiffData);
-      const image = await tiff.getImage();
-      const rasters = await image.readRasters();
+      try {
+        const tiff = await fromArrayBuffer(tiffData);
+        const image = await tiff.getImage();
+        const rasters = await image.readRasters();
 
-      // Extract and normalize elevation data from first band
-      const originalData = rasters[0] as Uint16Array;
-      const originalWidth = image.getWidth();
-      const originalHeight = image.getHeight();
+        // Extract and normalize elevation data from first band
+        const originalData = rasters[0] as Uint16Array;
+        const originalWidth = image.getWidth();
+        const originalHeight = image.getHeight();
 
-      // Resample to target resolution using bilinear interpolation
-      this.heightmapData = this.resampleHeightmap(
-        originalData,
-        originalWidth,
-        originalHeight,
-        targetResolution.width,
-        targetResolution.height
-      );
+        // Resample to target resolution using bilinear interpolation
+        this.heightmapData = this.resampleHeightmap(
+          originalData,
+          originalWidth,
+          originalHeight,
+          targetResolution.width,
+          targetResolution.height
+        );
 
-      // Store resolution for later use
-      this.resolution = targetResolution;
+        // Store resolution for later use
+        this.resolution = targetResolution;
 
-      // Process and identify key geological features
-      this.identifyGeologicalFeatures();
+        // Process and identify key geological features
+        this.identifyGeologicalFeatures();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error('Main thread terrain processing error:', errorMsg);
+        throw new Error(`Terrain processing failed on main thread: ${errorMsg}`);
+      }
 
       this.isProcessing = false;
     } catch (error) {
       this.isProcessing = false;
+      // Ensure we clean up any partial resources on error
+      this.heightmapData = null;
+
       console.error('Failed to process LIDAR data:', error);
-      throw new Error('Terrain generation failed');
+      throw new Error(error instanceof Error ? error.message : 'Terrain generation failed');
     }
   }
 
@@ -502,7 +532,8 @@ export class LIDARTerrainProcessor {
     }
 
     this.heightmapData = null;
-    this.geologicalFeatures = new Map();
+    this.geologicalFeatures.clear();
+    this.geologicalFeatures = null as unknown as Map<string, GeologicalFeature>;
   }
 
   // ------------------------

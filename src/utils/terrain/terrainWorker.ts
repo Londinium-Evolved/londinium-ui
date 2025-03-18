@@ -20,6 +20,18 @@ self.onmessage = async (event) => {
       }
 
       case TerrainWorkerMessageType.RESAMPLE: {
+        if (
+          !data.originalData ||
+          !data.originalWidth ||
+          !data.originalHeight ||
+          !data.targetWidth ||
+          !data.targetHeight
+        ) {
+          throw new Error(
+            'Incomplete data provided for resampling operation. Please ensure all parameters are specified.'
+          );
+        }
+
         const resampledData = resampleHeightmap(
           data.originalData,
           data.originalWidth,
@@ -40,9 +52,14 @@ self.onmessage = async (event) => {
 
       case TerrainWorkerMessageType.APPLY_ADJUSTMENTS:
         // To be implemented
+        throw new Error('APPLY_ADJUSTMENTS operation not yet implemented in terrain worker');
         break;
 
       case TerrainWorkerMessageType.GENERATE_NORMAL_MAP: {
+        if (!data.heightmapData || !data.width || !data.height) {
+          throw new Error('Missing heightmap data or dimensions for normal map generation');
+        }
+
         const normalMapData = generateNormalMap(data.heightmapData, data.width, data.height);
 
         self.postMessage(
@@ -60,9 +77,19 @@ self.onmessage = async (event) => {
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorType = error instanceof Error ? error.name : 'UnknownError';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    // Send a more detailed error message back to the main thread
     self.postMessage({
       type: TerrainWorkerMessageType.ERROR,
-      data: errorMessage,
+      data: {
+        message: errorMessage,
+        type: errorType,
+        stack: errorStack,
+        operation: type,
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 };
@@ -74,15 +101,38 @@ async function processTiff(
   tiffData: ArrayBuffer,
   targetResolution: { width: number; height: number }
 ) {
+  if (!tiffData || tiffData.byteLength === 0) {
+    throw new Error('Invalid or empty TIFF data provided');
+  }
+
+  if (!targetResolution || !targetResolution.width || !targetResolution.height) {
+    throw new Error('Invalid target resolution specified');
+  }
+
   try {
     const tiff = await fromArrayBuffer(tiffData);
+    if (!tiff) {
+      throw new Error('Failed to parse TIFF from ArrayBuffer - invalid file format');
+    }
+
     const image = await tiff.getImage();
+    if (!image) {
+      throw new Error('Could not extract image from TIFF file');
+    }
+
     const rasters = await image.readRasters();
+    if (!rasters || rasters.length === 0) {
+      throw new Error('No raster data found in TIFF image');
+    }
 
     // Extract and normalize elevation data from first band
     const originalData = rasters[0] as Uint16Array;
     const originalWidth = image.getWidth();
     const originalHeight = image.getHeight();
+
+    if (originalWidth <= 0 || originalHeight <= 0) {
+      throw new Error(`Invalid dimensions in TIFF: ${originalWidth}x${originalHeight}`);
+    }
 
     // Resample to target resolution using bilinear interpolation
     const heightmapData = resampleHeightmap(
@@ -101,16 +151,35 @@ async function processTiff(
           heightmapData: heightmapData.buffer,
           width: targetResolution.width,
           height: targetResolution.height,
+          originalDimensions: {
+            width: originalWidth,
+            height: originalHeight,
+          },
         },
       },
       { transfer: [heightmapData.buffer] }
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    self.postMessage({
-      type: TerrainWorkerMessageType.ERROR,
-      data: `Failed to process TIFF: ${errorMessage}`,
-    });
+    // Provide more specific error context
+    let errorContext = 'Unknown processing stage';
+    if (error instanceof Error) {
+      // Try to determine which processing stage failed
+      if (error.message.includes('fromArrayBuffer')) {
+        errorContext = 'TIFF parsing';
+      } else if (error.message.includes('getImage')) {
+        errorContext = 'Image extraction';
+      } else if (error.message.includes('readRasters')) {
+        errorContext = 'Raster data reading';
+      } else if (error.message.includes('resample')) {
+        errorContext = 'Heightmap resampling';
+      }
+    }
+
+    throw new Error(
+      `Failed to process TIFF (${errorContext}): ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
   }
 }
 
@@ -124,6 +193,25 @@ function resampleHeightmap(
   targetWidth: number,
   targetHeight: number
 ): Float32Array {
+  // Validate input parameters
+  if (!originalData || originalData.length === 0) {
+    throw new Error('No source data provided for resampling');
+  }
+
+  if (originalWidth <= 0 || originalHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
+    throw new Error(
+      `Invalid dimensions for resampling: source ${originalWidth}x${originalHeight}, target ${targetWidth}x${targetHeight}`
+    );
+  }
+
+  if (originalData.length !== originalWidth * originalHeight) {
+    throw new Error(
+      `Data length mismatch: expected ${originalWidth * originalHeight} elements, got ${
+        originalData.length
+      }`
+    );
+  }
+
   const result = new Float32Array(targetWidth * targetHeight);
 
   // Calculate scaling factors
@@ -178,6 +266,23 @@ function resampleHeightmap(
  * Generate normal map from heightmap
  */
 function generateNormalMap(heightmapData: Float32Array, width: number, height: number): Uint8Array {
+  // Validate input parameters
+  if (!heightmapData || heightmapData.length === 0) {
+    throw new Error('No heightmap data provided for normal map generation');
+  }
+
+  if (width <= 0 || height <= 0) {
+    throw new Error(`Invalid dimensions for normal map: ${width}x${height}`);
+  }
+
+  if (heightmapData.length !== width * height) {
+    throw new Error(
+      `Heightmap data length mismatch: expected ${width * height} elements, got ${
+        heightmapData.length
+      }`
+    );
+  }
+
   const normalMapData = new Uint8Array(width * height * 4);
 
   // For each pixel in the heightmap

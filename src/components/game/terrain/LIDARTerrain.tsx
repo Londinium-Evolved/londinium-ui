@@ -14,10 +14,10 @@ interface LIDARTerrainProps {
  */
 export const LIDARTerrain: React.FC<LIDARTerrainProps> = ({ dataUrl, settings }) => {
   const { gameState } = useRootStore();
-  const [isReady, setIsReady] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Use our custom hook
-  const { error, terrainGeometry, normalMap, loadTerrain } = useLIDARTerrain();
+  const { isLoading, error, terrainGeometry, normalMap, loadTerrain } = useLIDARTerrain();
 
   // Define fetchAndLoadTerrain outside of useEffect
   const fetchAndLoadTerrain = useCallback(async () => {
@@ -29,9 +29,10 @@ export const LIDARTerrain: React.FC<LIDARTerrainProps> = ({ dataUrl, settings })
 
       const arrayBuffer = await response.arrayBuffer();
       await loadTerrain(arrayBuffer, settings);
-      setIsReady(true);
+      setIsInitializing(false);
     } catch (err) {
       console.error('Error loading terrain:', err);
+      setIsInitializing(false);
     }
   }, [dataUrl, loadTerrain, settings]);
 
@@ -91,9 +92,35 @@ export const LIDARTerrain: React.FC<LIDARTerrainProps> = ({ dataUrl, settings })
     });
   }, [createMaterial]);
 
-  // Render terrain mesh when ready
-  if (!isReady || !terrainGeometry || !material) {
-    return null; // Or a loading indicator
+  // Display a loading indicator or temporary terrain while data is being processed
+  if (isInitializing || isLoading || !terrainGeometry || !material) {
+    return (
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[settings.resolution.width, settings.resolution.height, 4, 4]} />
+        <meshStandardMaterial
+          color={gameState?.currentEra === 'roman' ? '#8b7355' : '#505050'}
+          wireframe={true}
+          opacity={0.7}
+          transparent={true}>
+          <primitive
+            attach='map'
+            object={
+              new THREE.DataTexture(new Uint8Array([200, 200, 200, 255]), 1, 1, THREE.RGBAFormat)
+            }
+          />
+        </meshStandardMaterial>
+        {/* Optional loading text */}
+        {isInitializing || isLoading ? (
+          <group position={[0, 0, 5]}>
+            <mesh>
+              <sphereGeometry args={[2, 16, 16]} />
+              <meshStandardMaterial color='#444' />
+            </mesh>
+            <pointLight intensity={0.5} distance={10} />
+          </group>
+        ) : null}
+      </mesh>
+    );
   }
 
   // If there was an error, log it but still try to render whatever we have
@@ -116,25 +143,5 @@ export const LIDARTerrain: React.FC<LIDARTerrainProps> = ({ dataUrl, settings })
  * Default export with loading handler
  */
 export default function TerrainWithLoading(props: LIDARTerrainProps) {
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate checking if data is available
-    const timeout = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <mesh position={[0, 0, 0]}>
-        <planeGeometry args={[50, 50]} />
-        <meshStandardMaterial color='#444' />
-      </mesh>
-    );
-  }
-
   return <LIDARTerrain {...props} />;
 }
