@@ -231,20 +231,15 @@ async function processTiff(data: unknown): Promise<void> {
       throw new Error('No data provided for processing');
     }
 
+    // Validate the data using our dedicated validation function
+    validateMessageData(TerrainWorkerMessageType.PROCESS_TIFF, data as Record<string, unknown>);
+
     // Type assertion after validation
     const typedData = data as {
       tiffData: ArrayBuffer;
       targetResolution: { width: number; height: number };
     };
     const { tiffData, targetResolution } = typedData;
-
-    if (!tiffData) {
-      throw new Error('No TIFF data provided');
-    }
-
-    if (!targetResolution || !targetResolution.width || !targetResolution.height) {
-      throw new Error('Invalid target resolution');
-    }
 
     // Process TIFF data
     reportProgress('process_tiff', 10, 'Loading GeoTIFF...');
@@ -319,11 +314,12 @@ async function processTiff(data: unknown): Promise<void> {
     );
   } catch (error) {
     console.error('Terrain worker error:', error);
-    handleError(
-      error instanceof Error ? error.message : String(error),
-      'process_tiff',
-      error instanceof Error ? error.stack : undefined
-    );
+    // Use the detailed error creator instead of handleError directly
+    const errorInfo = createDetailedError(error, 'process_tiff', 'tiff_processing');
+    postMessage({
+      type: 'error',
+      data: errorInfo,
+    });
   }
 }
 
@@ -468,16 +464,27 @@ self.onmessage = async (event: MessageEvent) => {
       case 'process_tiff':
         await processTiff(data);
         break;
-      default:
-        handleError(`Unknown message type: ${type}`, 'handle_message');
+      default: {
+        // Use createDetailedError for more detailed error reporting
+        const errorInfo = createDetailedError(
+          new Error(`Unknown message type: ${type}`),
+          'handle_message',
+          'message_routing'
+        );
+        postMessage({
+          type: 'error',
+          data: errorInfo,
+        });
+      }
     }
   } catch (error) {
     console.error('Worker message handler error:', error);
-    handleError(
-      error instanceof Error ? error.message : String(error),
-      'worker_message_handler',
-      error instanceof Error ? error.stack : undefined
-    );
+    // Use createDetailedError for more detailed error reporting
+    const errorInfo = createDetailedError(error, 'worker_message_handler', 'message_processing');
+    postMessage({
+      type: 'error',
+      data: errorInfo,
+    });
   } finally {
     // Mark worker as available again
     isProcessing = false;
